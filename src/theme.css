@@ -1,0 +1,448 @@
+/* NGF identity. Semantic state colours remain distinct from the brand red. */
+:root {
+  --navy: #141416;
+  --teal: #c92336;
+  --line: #e9e5e6;
+  --muted: #78747c;
+  --surface: #fff;
+  --canvas: #f7f6f7;
+  --ink: #29272d;
+  --soft: #faf8f9;
+  --brand-soft: #fff0f2;
+  --brand-ink: #b31f31;
+  color: var(--ink);
+  background: var(--canvas);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --line: #343136;
+  --muted: #a7a1ab;
+  --surface: #211f24;
+  --canvas: #171519;
+  --ink: #f0edf1;
+  --soft: #28252b;
+  --brand-soft: #3a2028;
+  --brand-ink: #ff8895;
+  color-scheme: dark;
+}
+body {
+  color: var(--ink);
+  background: var(--canvas);
+}
+.gym-logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #050505;
+}
+.brand {
+  gap: 12px;
+  letter-spacing: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.brand-name {
+  font-weight: 750;
+  display: block;
+}
+.brand-name > span {
+  display: block;
+  font-size: 0.82rem;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  margin-top: 5px;
+  color: #e96473;
+}
+.sidebar .brand {
+  padding-left: 0;
+}
+.sidebar {
+  background: #131316;
+  color: #aaa3ae;
+}
+.gym-switch {
+  margin-top: 26px;
+}
+.gym-switch strong {
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.gym-icon {
+  background: #39242a;
+  color: #ffb5bf;
+}
+.gym-switch small {
+  color: #a39aa5;
+}
+.nav-label {
+  color: #897d89;
+}
+.nav-item.selected {
+  background: #3a2027;
+  color: #ff8998;
+}
+.nav-item b {
+  background: #e34355;
+  color: white;
+}
+.pulse {
+  background: #ec5265;
+}
+.sidebar-note small {
+  color: #998997;
+}
+.staff .avatar {
+  background: #38252d;
+  color: #edbbc4;
+}
+.staff strong {
+  color: #f1e8ee;
+}
+.nav-item:hover {
+  color: #fff;
+}
+.sidebar-note {
+  color: #c9bac5;
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.theme-toggle:hover {
+  background: var(--soft);
+}
+.login-theme {
+  position: absolute;
+  right: 28px;
+  top: 24px;
+  z-index: 5;
+}
+.receipt-logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+.topbar {
+  background: var(--surface);
+}
+.panel,
+.modal {
+  background: var(--surface);
+}
+.panel {
+  border-color: var(--line);
+}
+.stat > strong,
+.chart-summary strong,
+h1,
+h2,
+h3 {
+  color: var(--ink);
+}
+.eyebrow,
+.text-button,
+.receipt-number {
+  color: var(--brand-ink);
+}
+.primary:hover {
+  background: #ab1c2c;
+}
+.secondary,
+.small-button {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.secondary:hover,
+.small-button:hover,
+.icon-button:hover {
+  background: var(--brand-soft);
+}
+.search {
+  background: var(--soft);
+  border-color: var(--line);
+}
+input,
+select,
+textarea {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #d7394d;
+  box-shadow: 0 0 0 3px #d7394d20;
+}
+.search input {
+  background: transparent;
+}
+.demo-banner {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  border-color: var(--line);
+}
+.bar {
+  background: #f1a7b1;
+}
+.bar.today {
+  background: #cc2a3f;
+}
+.bar-track {
+  border-color: var(--line);
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent 42px,
+    var(--line) 43px,
+    var(--line) 44px
+  );
+}
+.teal,
+.list-icon {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.daily-note {
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--brand-ink);
+}
+.daily-note strong {
+  color: var(--ink);
+}
+.tabs button.active {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.form-preview {
+  background: var(--brand-soft);
+  color: var(--muted);
+}
+.form-preview strong {
+  color: var(--brand-ink);
+}
+.toast {
+  background: #8d192a;
+}
+.workspace-footer > span:first-child {
+  color: var(--brand-ink);
+}
+.checkbox input {
+  accent-color: #c92336;
+}
+.login-art {
+  background: #121215;
+}
+.login-art h1 {
+  color: #fff;
+}
+.login-art .eyebrow,
+.login-metrics svg {
+  color: #f56b7d;
+}
+.login-art p,
+.login-metrics {
+  color: #b9adb7;
+}
+.login-foot {
+  color: #9c8c99;
+}
+.mobile-brand {
+  color: var(--ink);
+}
+.quick-action:hover {
+  background: var(--soft);
+}
+.profile-summary p,
+.helper,
+.page-heading p,
+.panel-header p,
+.notes p {
+  color: var(--muted);
+}
+.topbar-right > span:not(.owner-pill) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+[data-theme="dark"] .breadcrumb {
+  color: #a59ca8;
+}
+[data-theme="dark"] .breadcrumb strong {
+  color: #e6dfe8;
+}
+[data-theme="dark"] .topbar-right > span:first-child {
+  color: #b2a7b6;
+}
+[data-theme="dark"] th {
+  background: var(--soft);
+  color: #b5aab9;
+}
+[data-theme="dark"] td {
+  color: #d1c8d5;
+  border-color: var(--line);
+}
+[data-theme="dark"] tbody tr:hover {
+  background: #282229;
+}
+[data-theme="dark"] .member-cell strong {
+  color: var(--ink);
+}
+[data-theme="dark"] .member-cell small,
+[data-theme="dark"] .list-item small,
+[data-theme="dark"] .stat > small,
+[data-theme="dark"] .stat > div > span:first-child,
+[data-theme="dark"] .quick-action small,
+[data-theme="dark"] .bar-column,
+[data-theme="dark"] .bar-value,
+[data-theme="dark"] .chart-summary span,
+[data-theme="dark"] .reminder-row small,
+[data-theme="dark"] .integration-grid p,
+[data-theme="dark"] .demo-entry p,
+[data-theme="dark"] .demo-entry small {
+  color: #b5a9bb;
+}
+[data-theme="dark"] .list-item,
+[data-theme="dark"] .reminder-row {
+  border-color: var(--line);
+}
+[data-theme="dark"] .avatar {
+  background: #343038;
+  color: #d6c5da;
+}
+[data-theme="dark"] .list-item:nth-child(3n) .avatar,
+[data-theme="dark"] tr:nth-child(3n) .avatar {
+  background: #2c3043;
+  color: #c1cbea;
+}
+[data-theme="dark"] .list-item:nth-child(3n + 1) .avatar,
+[data-theme="dark"] tr:nth-child(3n + 1) .avatar {
+  background: #3a2e2a;
+  color: #e8c2ad;
+}
+[data-theme="dark"] .badge {
+  background: #343039;
+  color: #cec3d3;
+}
+[data-theme="dark"] .badge.green {
+  background: #203a31;
+  color: #8adbb3;
+}
+[data-theme="dark"] .badge.amber {
+  background: #423323;
+  color: #f2c37a;
+}
+[data-theme="dark"] .badge.red {
+  background: #42242c;
+  color: #ff9ba8;
+}
+[data-theme="dark"] .badge.blue,
+[data-theme="dark"] .blue {
+  background: #263447;
+  color: #a4c5f6;
+}
+[data-theme="dark"] .amber {
+  background: #423323;
+  color: #edc482;
+}
+[data-theme="dark"] .violet {
+  background: #352c46;
+  color: #d0b4fa;
+}
+[data-theme="dark"] .mini-stats b,
+[data-theme="dark"] dd {
+  color: var(--ink);
+}
+[data-theme="dark"] .integration-grid svg {
+  color: #ff8998;
+}
+[data-theme="dark"] .login {
+  background: var(--canvas);
+}
+[data-theme="dark"] .whatsapp-button {
+  background: #20372c;
+  color: #94dfaf;
+  border-color: #35513d;
+}
+[data-theme="dark"] .error,
+[data-theme="dark"] .danger-button {
+  background: #3d2229;
+  color: #ffacb6;
+  border-color: #713943;
+}
+[data-theme="dark"] .receipt-total {
+  background: #352128;
+  color: #f0bdc7;
+}
+[data-theme="dark"] .receipt-total strong {
+  color: #ff879a;
+}
+@media (max-width: 720px) {
+  .theme-toggle {
+    padding: 8px;
+  }
+  .theme-toggle span {
+    display: none;
+  }
+  .topbar-right {
+    gap: 8px;
+  }
+  .topbar-right > span:not(.owner-pill) {
+    display: none;
+  }
+  .breadcrumb {
+    gap: 5px;
+  }
+  .login-theme {
+    right: 20px;
+    top: 20px;
+  }
+  .mobile-brand {
+    font-size: 1rem;
+    margin-bottom: 55px;
+  }
+  .login-form {
+    padding-top: 75px;
+  }
+  .gym-logo {
+    width: 48px;
+    height: 48px;
+  }
+}
+@media print {
+  .print-receipt {
+    color: #222;
+    background: #fff;
+  }
+  .print-receipt h2,
+  .print-receipt h3,
+  .print-receipt dd {
+    color: #222;
+  }
+  .receipt-total,
+  [data-theme="dark"] .receipt-total {
+    background: #fff0f2;
+    color: #752231;
+  }
+  .receipt-total strong,
+  [data-theme="dark"] .receipt-total strong {
+    color: #ae1c31;
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "gymdesk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -b && tsc -p tsconfig.functions.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "tsx --test tests/domain.test.ts",
+    "check:server": "tsc -p tsconfig.functions.json && tsx --test tests/server.test.ts",
+    "test:db": "node tests/database.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/navigation-plans.mjs && node tests/operations.mjs && node tests/professional-workflows.mjs && node tests/lifecycles.mjs && node tests/dashboard.mjs && node tests/reports.mjs && node tests/ui-review.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "prettier": "^3.9.9",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "wrangler": "^4.86.0"
+  }
+}

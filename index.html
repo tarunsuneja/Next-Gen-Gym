@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#161416" />
+    <meta
+      name="description"
+      content="The Next Generation Fitness Gym — members, memberships, collections and attendance in one workspace."
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NGF Gym" />
+    <link rel="manifest" href="/manifest.webmanifest?v=ngf2" />
+    <link rel="icon" href="/icons/favicon-32.png?v=ngf2" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/icons/favicon-48.png?v=ngf2" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=ngf2" sizes="180x180" />
+    <title>The Next Generation Fitness Gym</title>
+    <script>
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.__installPrompt = e;
+        window.dispatchEvent(new Event("ngf-install-ready"));
+      });
+      window.addEventListener("appinstalled", () => {
+        window.__installPrompt = null;
+        window.dispatchEvent(new Event("ngf-installed"));
+      });
+    </script>
+    <script>
+      try {
+        const t = localStorage.getItem("ngf-theme");
+        document.documentElement.dataset.theme =
+          t === "light" || t === "dark"
+            ? t
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
