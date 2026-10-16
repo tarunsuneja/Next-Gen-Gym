@@ -398,7 +398,7 @@ Tests to add:
 | **2. Member lifecycle** | Archive/restore · `memberDelete` (zero-history hard delete) · `expire` (End access) · audit trail page | ✅ done |
 | **3. Plans** | `planDelete` with usage warning (past records keep plan name) | ✅ done |
 | **4. UX polish** | membership edit modal · WhatsApp messaging UI · member photos · birthdays/discounts · check-out flow · demo backup/transfer · PWA install | ✅ done |
-| **5. Hardening** | CI workflow · lint/format adoption · security headers (`public/_headers` + CSP) · error boundary + global handlers · friendly SQL-error mapping · export audit · PKCE auth · receipt `lpad` truncation fix · `search_path` fix · live Supabase integration run | ⬜ **next** |
+| **5. Hardening** | CI workflow � lint/format adoption � security headers (`public/_headers` + CSP) � error boundary + global handlers � friendly SQL-error mapping � export audit � PKCE auth � receipt `lpad` truncation fix � `search_path` fix (public, pg_temp) � live Supabase integration run | ? **done** |
 | **🟡 Later** | QR kiosk · biometrics · GST invoicing · UPI/Razorpay · member portal · URL routing · expenses/P&L · CSV import · pagination/server summaries | separate plans |
 
 **Verification gate** (all pass as of the baseline commit):

@@ -23,7 +23,17 @@ import {
 } from "./domain";
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-export const supabase = url && key ? createClient(url, key) : null;
+export const supabase =
+  url && key
+    ? createClient(url, key, {
+        auth: {
+          flowType: "pkce",
+          detectSessionInUrl: true,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      })
+    : null;
 export const isShowcase = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "sample";
 export const DEMO_KEY = isShowcase ? "ngf-showcase-v1" : "gymdesk-demo-v1";
 const KEY = DEMO_KEY;
@@ -111,6 +121,15 @@ export async function liveAction(a: Action) {
   });
   if (error) throw error;
   return liveLoad();
+}
+export async function logExport(kind: string) {
+  if (!supabase) return;
+  const { error } = await supabase.rpc("gym_action", {
+    action_type: "export",
+    payload: { kind },
+    request_id: id(),
+  });
+  if (error) throw error;
 }
 export function demoAction(d: Data, a: Action): Data {
   const next = structuredClone(d),
@@ -582,6 +601,9 @@ export function demoAction(d: Data, a: Action): Data {
       next.staff.splice(i, 1);
       break;
     }
+    case "export":
+      if (!String(p.kind || "").trim()) throw Error("Export kind is required.");
+      break;
     default:
       throw Error("Unknown action.");
   }

@@ -832,6 +832,20 @@ try {
   d=await read();assert.equal(d.memberships.find(m=>m.id===paidMembership.id).discount,10000);
   await assert.rejects(()=>action("membershipEdit",{...editPayload,baseAmount:editPayload.amount,discountType:"percent",discountValue:101}),/100 percent/);
   await assert.rejects(()=>action("membershipEdit",{...editPayload,baseAmount:editPayload.amount,discountType:"fixed",discountValue:100}),/discount total/);
+  await action("export", { kind: "collections" });
+  d = await read();
+  assert(d.audit.some((a) => a.action === "export" && a.payload.kind === "collections"));
+  await assert.rejects(() => action("export", {}), /Export kind is required/);
+  await action("member", { name: "Receipt Grower", phone: "9000000001" });
+  d = await read();
+  const grower = d.members.find((m) => m.name === "Receipt Grower");
+  await action("membership", { memberId: grower.id, planId: d.plans[0].id, start: "2030-01-01", amount: 100000 });
+  d = await read();
+  const growerMembership = d.memberships.find((s) => s.memberId === grower.id);
+  await db.query("update gyms set receipt_seq=999999 where id=$1", [g]);
+  await action("payment", { membershipId: growerMembership.id, amount: 100000, method: "Cash" });
+  d = await read();
+  assert.equal(d.payments.find((p) => p.membershipId === growerMembership.id).receipt, "GD-1000000");
   await db.query("select set_config('test.user',$1,false)", [outsider]);
   await assert.rejects(read, /not been assigned/);
   await assert.rejects(
@@ -843,7 +857,7 @@ try {
   );
   assert.equal(privileges.rows[0].allowed, false);
   console.log(
-    "PASS: migration, member profile fields with validation, month-end renewal, overlap rejection, idempotent payments, overpayment rejection, receipt snapshots, owner-only void/override, attendance deduplication, WhatsApp config/templates/rules with service RPCs, staff admin, plan/member deletion and membership expiry, owner-only audit trail, unassigned-account isolation and denied direct writes.",
+    "PASS: migration, member profile fields with validation, month-end renewal, overlap rejection, idempotent payments, overpayment rejection, receipt snapshots, owner-only void/override, attendance deduplication, WhatsApp config/templates/rules with service RPCs, staff admin, plan/member deletion and membership expiry, owner-only audit trail, audited CSV exports, seven-digit receipt growth, unassigned-account isolation and denied direct writes.",
   );
 } finally {
   await db.close();

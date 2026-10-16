@@ -91,10 +91,12 @@ import {
   demoSave,
   liveAction,
   liveLoad,
+  logExport,
   sendWhatsApp,
   supabase,
   type Action,
 } from "./api";
+import { friendlyError } from "./errors";
 type Page =
   | "Dashboard"
   | "Members"
@@ -288,6 +290,21 @@ export default function App() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   };
+  function exportWithAudit(filename: string, rows: (string | number)[][]) {
+    exportCSV(filename, rows);
+    const kind = filename.split(/[-.]/)[0] || "export";
+    if (demo) {
+      try {
+        setData(demoAction(data!, { type: "export", payload: { kind } }));
+      } catch (e) {
+        console.error("Export audit failed:", e);
+      }
+    } else {
+      void logExport(kind).catch((e) =>
+        console.error("Export audit failed:", e),
+      );
+    }
+  }
   async function load() {
     setBusy(true);
     try {
@@ -298,7 +315,7 @@ export default function App() {
       if (e) throw e;
       setRole(r);
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -338,7 +355,7 @@ export default function App() {
       flash(message);
       return updated;
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
       return false;
     } finally {
       mutationLock.current = false;
@@ -363,7 +380,7 @@ export default function App() {
       flash("Message sent");
       return true;
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
       return false;
     } finally {
       mutationLock.current = false;
@@ -402,7 +419,7 @@ export default function App() {
       if (result.error) throw result.error;
       if (loginMode === "reset") flash("Password reset email requested.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -426,7 +443,7 @@ export default function App() {
       setRole("owner");
       setError("");
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     }
   };
   if (!session && !demo)
@@ -1080,7 +1097,7 @@ export default function App() {
         flash("Password updated");
       }
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e));
     }
   }
   return (
@@ -1894,7 +1911,7 @@ export default function App() {
                   <button
                     className="secondary"
                     onClick={() =>
-                      exportCSV("members.csv", [
+                      exportWithAudit("members.csv", [
                         [
                           "Name",
                           "Phone",
@@ -1963,7 +1980,7 @@ export default function App() {
                   <button
                     className="secondary"
                     onClick={() =>
-                      exportCSV("payments.csv", [
+                      exportWithAudit("payments.csv", [
                         [
                           "Receipt",
                           "Member",
@@ -2023,7 +2040,7 @@ export default function App() {
                 <button
                   className="secondary"
                   onClick={() =>
-                    exportCSV("attendance.csv", [
+                    exportWithAudit("attendance.csv", [
                       ["Member", "Date", "Check-in", "Check-out", "Duration minutes", "Override"],
                       ...(viewRange ? visibleAttendance : d.attendance).map(
                         (a) => [
@@ -2218,7 +2235,7 @@ export default function App() {
               flash={flash}
             />
           ) : page === "Reports" ? (
-            <Reports data={d} download={exportCSV} />
+            <Reports data={d}               download={exportWithAudit} />
           ) : page === "Audit" ? (
             role === "owner" ? (
               <AuditLog data={d} />

@@ -1,0 +1,36 @@
+name: Database backup (free tier)
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Dump and compress
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL secret missing; skipping backup" >&2
+            exit 0
+          fi
+          TS=$(date +%Y%m%d-%H%M%S)
+          pg_dump --no-owner --no-acl "$SUPABASE_DB_URL" | gzip > gymdesk-backup-$TS.sql.gz
+      - name: Upload artifact
+        if: env.SUPABASE_DB_URL != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: gymdesk-pg-dump
+          path: gymdesk-backup-*.sql.gz
+          retention-days: 90
+          if-no-files-found: warn
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
