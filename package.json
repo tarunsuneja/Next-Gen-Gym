@@ -13,7 +13,7 @@
     "test": "tsx --test tests/domain.test.ts",
     "check:server": "tsc -p tsconfig.functions.json && tsx --test tests/server.test.ts",
     "test:db": "node tests/database.mjs",
-    "test:browser": "node tests/browser.mjs && node tests/navigation-plans.mjs && node tests/operations.mjs && node tests/professional-workflows.mjs && node tests/lifecycles.mjs && node tests/dashboard.mjs && node tests/reports.mjs && node tests/ui-review.mjs"
+    "test:browser": "node tests/browser.mjs && node tests/core-lifecycle.mjs && node tests/navigation-plans.mjs && node tests/operations.mjs && node tests/professional-workflows.mjs && node tests/lifecycles.mjs && node tests/dashboard.mjs && node tests/reports.mjs && node tests/ui-review.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
