@@ -1176,7 +1176,7 @@ export default function App() {
           "Full payment recorded. Membership and receipt are ready.",
         );
         if (updated) {
-          const receipt = (updated.payments as any[]).find(
+          const receipt = updated.payments.find(
             (p) => p.requestId === s("paymentRequestId"),
           );
           if (receipt) setModal({ kind: "receipt", payment: receipt });

@@ -11,9 +11,7 @@ import { type Data, id } from "./domain";
 import { supabase } from "./data/client";
 export { supabase } from "./data/client";
 
-export function invalidateCache() {
-  // Cache invalidation is handled by epoch/generation guards and liveRefresh.
-}
+
 
 export async function sendWhatsApp(payload: {
   memberId: string;
