@@ -11,17 +11,8 @@ import { type Data, id } from "./domain";
 import { supabase } from "./data/client";
 export { supabase } from "./data/client";
 
-const cache = new Map<string, { data: Data; ts: number }>();
-const inflight = new Map<string, Promise<Data>>();
-const CACHE_TTL = 10000;
-
-function getCacheKey(full: boolean) {
-  return full ? "full" : "dashboard";
-}
-
 export function invalidateCache() {
-  cache.clear();
-  inflight.clear();
+  // Cache invalidation is handled by epoch/generation guards and liveRefresh.
 }
 
 export async function sendWhatsApp(payload: {
@@ -75,23 +66,18 @@ export async function liveRefresh(
     p_sections: sections,
   });
   if (error) throw error;
-  const merged = mergeWorkspaceSections(previous, data, sections);
-  if (merged.dashboard && !previous.dashboard) {
-    cache.set("full", { data: merged, ts: Date.now() });
-  }
-  return merged;
+  return mergeWorkspaceSections(previous, data, sections);
 }
 export async function liveAction(a: Action, previous?: Data) {
-  invalidateCache();
-  const requestId = (a as any).requestId || id();
+  const requestId = a.requestId || id();
   const command = await prepareMemberPhoto(a, previous);
   return commitAndRefresh(
     requestId,
     async () => {
       if (!supabase) throw Error("Supabase is not configured.");
       const { error } = await supabase.rpc("gym_action", {
-        action_type: (command as any).type,
-        payload: (command as any).payload,
+        action_type: command.type,
+        payload: command.payload,
         request_id: requestId,
       });
       if (error) throw error;

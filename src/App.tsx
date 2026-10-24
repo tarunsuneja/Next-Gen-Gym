@@ -25,7 +25,7 @@ import { PlanDistribution } from "./PlanDistribution";
 import { ModalView } from "./ModalView";
 import { MemberRegistration } from "./MemberRegistration";
 import { MemberAvatar as Avatar } from "./MemberAvatar";
-import { date as formatDate, money as formatMoney } from "./format";
+
 import {
   Suspense,
   lazy,
@@ -373,20 +373,6 @@ export default function App() {
       data?.dashboard,
     ],
   );
-  const memberMap = useMemo(
-    () => (data ? new Map(data.members.map((m) => [m.id, m])) : new Map<string, any>()),
-    [data?.members],
-  );
-  const membershipMap = useMemo(
-    () => (data ? new Map(data.memberships.map((s) => [s.id, s])) : new Map<string, any>()),
-    [data?.memberships],
-  );
-  const planMap = useMemo(
-    () => (data ? new Map(data.plans.map((p) => [p.id, p])) : new Map<string, any>()),
-    [data?.plans],
-  );
-  const getMember = useCallback((id: string) => memberMap.get(id), [memberMap]);
-  const getMemberName = useCallback((id: string) => memberMap.get(id)?.name ?? "Unknown member", [memberMap]);
   const currentDay = today();
   const { visiblePayments, attendanceRows } = useMemo(
     () =>
@@ -550,7 +536,7 @@ export default function App() {
   useEffect(() => {
     setSelected((current) =>
       current && data
-        ? memberMap.get(current.id) || null
+        ? workspaceIndex?.members.get(current.id) || null
         : current,
     );
   }, [data]);
@@ -788,14 +774,13 @@ export default function App() {
             <tbody>
               {list.map((m) => {
                 const s =
-                    workspaceIndex!.latest(m.id) ||
                     d.memberships.find(
                       (x) =>
                         x.memberId === m.id &&
                         !x.cancelled &&
                         x.start <= t &&
                         x.end >= t,
-                    ),
+                    ) || workspaceIndex!.latest(m.id),
                   b = workspaceIndex!.balance(m.id),
                   checked = checkins.find((a) => a.memberId === m.id);
                 return (
@@ -1118,27 +1103,14 @@ export default function App() {
               newRegistration: true,
             });
           else {
-            let member: any = null;
-            if ((saved as any).members) {
-              member = (saved as any).members.find(
-                (m: any) => m.name === s("name").trim() && m.phone === phone,
-              );
-            } else {
-              member = memberMap.get((saved as any).memberId) || null;
-              if (!member && s("name")) {
-                for (const m of Array.from(memberMap.values()) as any[]) {
-                  if (m.name === s("name").trim() && m.phone === phone) {
-                    member = m;
-                    break;
-                  }
-                }
-              }
-            }
+            const member = saved.members?.find(
+              (m: any) => m.name === s("name").trim() && m.phone === phone,
+            );
             if (member) setModal({ kind: "welcome", member });
           }
         }
       } else if (kind === "membership" || kind === "payment") {
-        const selectedMember = memberMap.get(s("memberId"));
+          const selectedMember = workspaceIndex?.members.get(s("memberId")) || data?.members.find((m) => m.id === s("memberId"));
         if (!selectedMember)
           throw Error("Search for and select a member first.");
         const settling = s("checkoutMode") === "balance";
@@ -2186,11 +2158,11 @@ export default function App() {
                     .map((p) => (
                       <div className="list-item" key={p.id}>
                         <Avatar
-                          name={getMemberName(p.memberId)}
-                          photo={workspaceIndex!.members.get(p.memberId)?.photo}
-                        />
-                        <div>
-                          <strong>{getMemberName(p.memberId)}</strong>
+                        name={workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}
+                        photo={workspaceIndex!.members.get(p.memberId)?.photo}
+                      />
+                      <div>
+                        <strong>{workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}</strong>
                           <small>
                             {p.receipt} · {p.method}
                           </small>
