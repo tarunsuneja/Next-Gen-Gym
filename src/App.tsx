@@ -1118,9 +1118,22 @@ export default function App() {
               newRegistration: true,
             });
           else {
-            const member = (saved as any).members ? (saved as any).members.find(
-              (m) => m.name === s("name").trim() && m.phone === phone,
-            );
+            let member: any = null;
+            if ((saved as any).members) {
+              member = (saved as any).members.find(
+                (m: any) => m.name === s("name").trim() && m.phone === phone,
+              );
+            } else {
+              member = memberMap.get((saved as any).memberId) || null;
+              if (!member && s("name")) {
+                for (const m of Array.from(memberMap.values()) as any[]) {
+                  if (m.name === s("name").trim() && m.phone === phone) {
+                    member = m;
+                    break;
+                  }
+                }
+              }
+            }
             if (member) setModal({ kind: "welcome", member });
           }
         }

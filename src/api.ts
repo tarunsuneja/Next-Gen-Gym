@@ -83,21 +83,23 @@ export async function liveRefresh(
 }
 export async function liveAction(a: Action, previous?: Data) {
   invalidateCache();
-  const requestId = a.requestId || id();
+  const requestId = (a as any).requestId || id();
   const command = await prepareMemberPhoto(a, previous);
   return commitAndRefresh(
     requestId,
     async () => {
       if (!supabase) throw Error("Supabase is not configured.");
       const { error } = await supabase.rpc("gym_action", {
-        action_type: command.type,
-        payload: command.payload,
+        action_type: (command as any).type,
+        payload: (command as any).payload,
         request_id: requestId,
       });
       if (error) throw error;
     },
-    () =>
-      previous ? liveRefresh(previous, affectedSections(action)) : liveLoad(),
+    async () => {
+      if (!previous || !supportsScopedReads(previous)) return liveLoad();
+      return liveRefresh(previous, affectedSections(a));
+    },
   );
 }
 export async function logExport(kind: string) {
