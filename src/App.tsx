@@ -1104,7 +1104,7 @@ export default function App() {
             });
           else {
             const member = saved.members?.find(
-              (m: any) => m.name === s("name").trim() && m.phone === phone,
+              (m) => m.name === s("name").trim() && m.phone === phone,
             );
             if (member) setModal({ kind: "welcome", member });
           }
