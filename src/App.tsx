@@ -550,7 +550,7 @@ export default function App() {
   useEffect(() => {
     setSelected((current) =>
       current && data
-        ? data.members.find((m) => m.id === current.id) || null
+        ? memberMap.get(current.id) || null
         : current,
     );
   }, [data]);
@@ -1105,10 +1105,10 @@ export default function App() {
             saved.members
               .slice()
               .reverse()
-              .find((m) => m.name === s("name").trim() && m.phone === phone) ||
+              .find((m: any) => m.name === s("name").trim() && m.phone === phone) ||
               null,
           );
-          const receipt = saved.payments.find(
+          const receipt = (saved.payments as any[]).find(
             (p) => p.requestId === s("paymentRequestId"),
           );
           if (receipt)
@@ -1204,7 +1204,7 @@ export default function App() {
           "Full payment recorded. Membership and receipt are ready.",
         );
         if (updated) {
-          const receipt = updated.payments.find(
+          const receipt = (updated.payments as any[]).find(
             (p) => p.requestId === s("paymentRequestId"),
           );
           if (receipt) setModal({ kind: "receipt", payment: receipt });
@@ -2934,7 +2934,7 @@ export default function App() {
               }))}
               receipt={(pid) => {
                 setGlobalSearch(false);
-                const payment = d.payments.find((p) => p.id === pid);
+                const payment = d.payments.find((p: any) => p.id === pid);
                 if (payment) setModal({ kind: "receipt", payment });
               }}
             />
