@@ -56,10 +56,14 @@ try {
     const path = new URL(route.request().url()).pathname;
     return route.fulfill({
       status:
-        path.endsWith("/get_gym_data") || path.endsWith("/my_role") ? 200 : 403,
+        path.endsWith("/get_gym_data") ||
+        path.endsWith("/get_gym_dashboard") ||
+        path.endsWith("/my_role")
+          ? 200
+          : 403,
       contentType: "application/json",
       body: JSON.stringify(
-        path.endsWith("/get_gym_data")
+        path.endsWith("/get_gym_data") || path.endsWith("/get_gym_dashboard")
           ? fixture
           : path.endsWith("/my_role")
             ? "owner"

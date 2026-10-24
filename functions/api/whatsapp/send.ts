@@ -1,3 +1,4 @@
+import { dispatchMessage } from "./dispatch";
 import {
   json,
   requireEnv,
@@ -56,42 +57,33 @@ export const onRequestPost = async ({ request, env }: Ctx) => {
     if (!prepared.consent)
       return json({ error: "Member has not given WhatsApp consent." }, 400);
     const rendered = renderBody(prepared.body, prepared.vars || {});
-    try {
-      const result = await sendMeta(env, {
-        phoneNumberId: prepared.phone_number_id,
-        to: prepared.phone,
-        templateName: prepared.template_name,
-        language: prepared.language,
-        variables: prepared.variables || [],
-        vars: prepared.vars || {},
-        body: rendered,
-      });
-      await rpc(env, "wa_record", {
-        p_gym: profile.gym_id,
-        p_member: memberId,
-        p_direction: "out",
-        p_template: prepared.template_name,
-        p_wa_id: result.id,
-        p_phone: prepared.phone,
-        p_body: rendered,
-        p_status: "sent",
-        p_error: "",
-      });
-      return json({ ok: true, status: "sent", waMessageId: result.id });
-    } catch (sendError) {
-      await rpc(env, "wa_record", {
-        p_gym: profile.gym_id,
-        p_member: memberId,
-        p_direction: "out",
-        p_template: prepared.template_name,
-        p_wa_id: "",
-        p_phone: prepared.phone,
-        p_body: rendered,
-        p_status: "failed",
-        p_error: (sendError as Error).message,
-      });
-      return json({ error: (sendError as Error).message }, 502);
-    }
+    const requestId = String(body?.requestId || "");
+    if (!/^[0-9a-f-]{36}$/i.test(requestId))
+      return json({ error: "A valid send request ID is required." }, 400);
+    const result = await dispatchMessage(env, {
+      key: `manual:${profile.gym_id}:${requestId}`,
+      gymId: profile.gym_id,
+      memberId,
+      phoneNumberId: prepared.phone_number_id,
+      to: prepared.phone,
+      templateName: prepared.template_name,
+      language: prepared.language,
+      variables: prepared.variables || [],
+      vars: prepared.vars || {},
+      body: rendered,
+    });
+    if (result.status === "failed") return json({ error: result.error }, 502);
+    if (result.status === "unknown" || result.status === "skipped")
+      return json(
+        {
+          status: result.status,
+          error:
+            result.error ||
+            "This send request is already being processed or has completed. Check the delivery log.",
+        },
+        202,
+      );
+    return json({ ok: true, status: "sent", waMessageId: result.id });
   } catch (error) {
     return json({ error: (error as Error).message }, 500);
   }

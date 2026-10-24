@@ -99,3 +99,65 @@ export function seed(): Data {
     gym: { name: GYM_NAME, phone: "", address: "" },
   };
 }
+
+/** Independent JS oracle for SQL dashboard projection parity tests. */
+export function dashboardFixture(source: Data, day = today()): Data {
+  const data = structuredClone(source);
+  const dayOf = (at: string) =>
+    new Date(Date.parse(at) + 19800000).toISOString().slice(0, 10);
+  const paid: Record<string, number> = {};
+  const payments = new Map<
+    string,
+    { day: string; amount: number; count: number }
+  >();
+  const visits = new Map<string, { day: string; count: number }>();
+  const hours = new Map<number, { hour: number; amount: number }>();
+  for (const p of source.payments) {
+    if (p.voided) continue;
+    paid[p.membershipId] = (paid[p.membershipId] ?? 0) + p.amount;
+    const at = dayOf(p.at);
+    if (at >= shiftDay(day, -62) && at <= day) {
+      const row = payments.get(at) ?? { day: at, amount: 0, count: 0 };
+      row.amount += p.amount;
+      row.count++;
+      payments.set(at, row);
+    }
+    if (at === day) {
+      const hour = new Date(Date.parse(p.at) + 19800000).getUTCHours();
+      const row = hours.get(hour) ?? { hour, amount: 0 };
+      row.amount += p.amount;
+      hours.set(hour, row);
+    }
+  }
+  const last = new Map<string, Data["attendance"][number]>();
+  for (const a of [...source.attendance].sort(
+    (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
+  )) {
+    last.set(a.memberId, a);
+    if (a.day >= shiftDay(day, -62) && a.day <= day) {
+      const row = visits.get(a.day) ?? { day: a.day, count: 0 };
+      row.count++;
+      visits.set(a.day, row);
+    }
+  }
+  data.payments = source.payments
+    .filter((p) => !p.voided)
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+    .slice(-5);
+  data.attendance = source.attendance.filter(
+    (a) => a.day === day || last.get(a.memberId)?.id === a.id,
+  );
+  data.reminders = [];
+  data.staff = [];
+  data.audit = [];
+  data.dashboard = {
+    day,
+    paid,
+    paymentDays: [...payments.values()].sort((a, b) =>
+      a.day.localeCompare(b.day),
+    ),
+    visitDays: [...visits.values()].sort((a, b) => a.day.localeCompare(b.day)),
+    hours: [...hours.values()].sort((a, b) => a.hour - b.hour),
+  };
+  return data;
+}

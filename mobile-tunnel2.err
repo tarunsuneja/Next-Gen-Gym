@@ -1,0 +1,29 @@
+Error: [31m  Failed to scan for dependencies from entries:
+  D:/00_AI/Gym/index.html
+D:/00_AI/Gym/artifacts/app-audit-2026-10-23.html
+D:/00_AI/Gym/artifacts/app-audit-latest.html
+D:/00_AI/Gym/artifacts/e2e-audit-2026-10-18.html
+
+  [39m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "src/api.ts" for import "liveRefresh"[0m
+
+    src/app/useWorkspace.ts:6:2:
+[37m      6 │   [32mliveRefresh[37m,
+        ╵   [32m~~~~~~~~~~~[0m
+
+
+    at failureErrorWithLog (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:1467:15)
+    at D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:926:25
+    at runOnEndCallbacks (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:1307:45)
+    at buildResponseToResult (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:924:7)
+    at D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:936:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:935:54)
+    at handleRequest (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:628:17)
+    at handleIncomingPacket (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:653:7)
+    at Socket.readFromStdout (D:\00_AI\Gym\node_modules\vite\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)
+[31mError: ENOTEMPTY: directory not empty, rmdir 'D:\00_AI\Gym\node_modules\.vite\deps'[39m

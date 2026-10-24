@@ -1,3 +1,4 @@
+import { indiaDay, indiaHourFormatter } from "./shared/formatters";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { shiftDay, type Payment } from "./domain";
 
@@ -33,22 +34,9 @@ export const RANGES: {
     note: "vs previous month-to-date",
   },
 ];
-export function kolkataDay(iso: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(iso));
-}
+export const kolkataDay = indiaDay;
 export function kolkataHour(iso: string) {
-  return Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      hour12: false,
-    }).format(new Date(iso)),
-  );
+  return Number(indiaHourFormatter.format(new Date(iso)));
 }
 export function monthFirstDay(t: string) {
   return t.slice(0, 8) + "01";
@@ -136,8 +124,20 @@ export function chartBuckets(
   payments: Payment[],
   dayOf: (iso: string) => string,
 ) {
-  const sumWhere = (test: (p: Payment) => boolean) =>
-    payments.filter(test).reduce((a, p) => a + p.amount, 0);
+  // Convert each timestamp once, rather than once for every chart bucket.
+  const firstDay =
+    key === "30"
+      ? shiftDay(t, -29)
+      : key === "7"
+        ? shiftDay(t, -6)
+        : monthFirstDay(t);
+  const totals = new Map<string, number>();
+  for (const payment of payments) {
+    const day = dayOf(payment.at);
+    if (key === "today" ? day !== t : day < firstDay || day > t) continue;
+    const bucket = key === "today" ? "h" + kolkataHour(payment.at) : day;
+    totals.set(bucket, (totals.get(bucket) ?? 0) + payment.amount);
+  }
   if (key === "today") {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const nowHour = kolkataHour(new Date().toISOString());
@@ -150,7 +150,7 @@ export function chartBuckets(
           h % 3 === 0 || h === 23
             ? `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`
             : "",
-        total: sumWhere((p) => dayOf(p.at) === t && kolkataHour(p.at) === h),
+        total: totals.get("h" + h) ?? 0,
       })),
     };
   }
@@ -175,7 +175,7 @@ export function chartBuckets(
     } else if (i === 0 || i === days - 1 || (dense && i % 5 === 0)) {
       label = day === t ? "Today" : String(Number(day.slice(8)));
     }
-    return { key: day, label, total: sumWhere((p) => dayOf(p.at) === day) };
+    return { key: day, label, total: totals.get(day) ?? 0 };
   });
   return { dense, activeKey: t, buckets };
 }

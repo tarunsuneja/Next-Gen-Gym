@@ -145,7 +145,7 @@ export function Messaging({
         payload: {
           id: tpl?.id,
           name: String(f.get("name") || "").trim(),
-          category: f.get("category"),
+          category: String(f.get("category") || "utility"),
           language: String(f.get("language") || "en").trim() || "en",
           body,
           variables,
@@ -169,8 +169,8 @@ export function Messaging({
           id: rule?.id,
           name: String(f.get("name") || "").trim(),
           offsetDays: Number(f.get("offsetDays")),
-          templateName: f.get("templateName"),
-          audience: f.get("audience"),
+          templateName: String(f.get("templateName") || ""),
+          audience: String(f.get("audience") || ""),
           isActive: f.get("isActive") === "on",
         },
       },
@@ -194,8 +194,8 @@ export function Messaging({
           senderPhone: String(f.get("senderPhone") || "").trim(),
           enabled: f.get("enabled") === "on",
           dailySendCap: Number(f.get("dailySendCap")) || 200,
-          quietStart: f.get("quietStart"),
-          quietEnd: f.get("quietEnd"),
+          quietStart: String(f.get("quietStart") || ""),
+          quietEnd: String(f.get("quietEnd") || ""),
         },
       },
       "WhatsApp settings saved",
@@ -252,35 +252,49 @@ export function Messaging({
                 sending to dispatch reminders.
               </p>
             )}
-            <div className="record-scroll" role="region" aria-label="Automated reminder queue" tabIndex={0}>
-{queue.length === 0 ? (
-              <p className="helper">
-                No reminders are due today for your active rules.
-              </p>
-            ) : (
-              queue.map((q) => {
-                const key = queueKey(q.memberId, q.templateName);
-                return (
-                  <label className="reminder-row" key={key}>
-                    <input
-                      type="checkbox"
-                      checked={!!picked[key]}
-                      onChange={(e) =>
-                        setPicked((p) => ({ ...p, [key]: e.target.checked }))
-                      }
-                    />
-                    <div>
-                      <span className="member-identity"><MemberAvatar name={memberName(q.memberId)} photo={data.members.find(m=>m.id===q.memberId)?.photo}/><strong>{memberName(q.memberId)}</strong></span>
-                      <small>
-                        {q.template.name} · {q.template.category}
-                      </small>
-                      <p className="helper">{q.body}</p>
-                    </div>
-                  </label>
-                );
-              })
-            )}
-</div>
+            <div
+              className="record-scroll"
+              role="region"
+              aria-label="Automated reminder queue"
+              tabIndex={0}
+            >
+              {queue.length === 0 ? (
+                <p className="helper">
+                  No reminders are due today for your active rules.
+                </p>
+              ) : (
+                queue.map((q) => {
+                  const key = queueKey(q.memberId, q.templateName);
+                  return (
+                    <label className="reminder-row" key={key}>
+                      <input
+                        type="checkbox"
+                        checked={!!picked[key]}
+                        onChange={(e) =>
+                          setPicked((p) => ({ ...p, [key]: e.target.checked }))
+                        }
+                      />
+                      <div>
+                        <span className="member-identity">
+                          <MemberAvatar
+                            name={memberName(q.memberId)}
+                            photo={
+                              data.members.find((m) => m.id === q.memberId)
+                                ?.photo
+                            }
+                          />
+                          <strong>{memberName(q.memberId)}</strong>
+                        </span>
+                        <small>
+                          {q.template.name} · {q.template.category}
+                        </small>
+                        <p className="helper">{q.body}</p>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
             {queue.length > 0 && (
               <div className="panel-header">
                 <span className="helper">
@@ -418,50 +432,55 @@ export function Messaging({
               </div>
             </form>
           )}
-          <div className="record-scroll" role="region" aria-label="Message templates" tabIndex={0}>
-{wa.templates.map((t) => (
-            <div className="list-item" key={t.id}>
-              <span className="list-icon">
-                <MessageCircle size={18} />
-              </span>
-              <div>
-                <strong>{t.name}</strong>
-                <small>
-                  {t.category} · {t.language} · {statusLabel(t.status)}
-                  {!t.isActive && " · inactive"}
-                </small>
-                <p className="helper">{t.body}</p>
-              </div>
-              {owner && (
-                <span>
-                  <button
-                    className="small-button"
-                    disabled={busy || !!tpl}
-                    onClick={() => setTpl(t)}
-                  >
-                    Edit
-                  </button>{" "}
-                  <button
-                    className="danger-button"
-                    aria-label={`Delete template ${t.name}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void mutate(
-                        {
-                          type: "whatsappTemplateDelete",
-                          payload: { id: t.id },
-                        },
-                        "Template deleted",
-                      )
-                    }
-                  >
-                    <Trash2 size={15} />
-                  </button>
+          <div
+            className="record-scroll"
+            role="region"
+            aria-label="Message templates"
+            tabIndex={0}
+          >
+            {wa.templates.map((t) => (
+              <div className="list-item" key={t.id}>
+                <span className="list-icon">
+                  <MessageCircle size={18} />
                 </span>
-              )}
-            </div>
-          ))}
-</div>
+                <div>
+                  <strong>{t.name}</strong>
+                  <small>
+                    {t.category} · {t.language} · {statusLabel(t.status)}
+                    {!t.isActive && " · inactive"}
+                  </small>
+                  <p className="helper">{t.body}</p>
+                </div>
+                {owner && (
+                  <span>
+                    <button
+                      className="small-button"
+                      disabled={busy || !!tpl}
+                      onClick={() => setTpl(t)}
+                    >
+                      Edit
+                    </button>{" "}
+                    <button
+                      className="danger-button"
+                      aria-label={`Delete template ${t.name}`}
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(
+                          {
+                            type: "whatsappTemplateDelete",
+                            payload: { id: t.id },
+                          },
+                          "Template deleted",
+                        )
+                      }
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
           {!wa.templates.length && (
             <p className="helper">
               No templates yet. Add the defaults to start.
@@ -579,47 +598,52 @@ export function Messaging({
               </div>
             </form>
           )}
-          <div className="record-scroll" role="region" aria-label="Automation rules" tabIndex={0}>
-{wa.rules.map((r) => (
-            <div className="list-item" key={r.id}>
-              <span className="list-icon">
-                <Clock size={18} />
-              </span>
-              <div>
-                <strong>{r.name}</strong>
-                <small>
-                  {r.audience} · {r.offsetDays >= 0 ? "+" : ""}
-                  {r.offsetDays} days · {r.templateName}
-                  {!r.isActive && " · paused"}
-                </small>
-              </div>
-              {owner && (
-                <span>
-                  <button
-                    className="small-button"
-                    disabled={busy || !!rule}
-                    onClick={() => setRule(r)}
-                  >
-                    Edit
-                  </button>{" "}
-                  <button
-                    className="danger-button"
-                    aria-label={`Delete reminder rule ${r.name}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void mutate(
-                        { type: "reminderRuleDelete", payload: { id: r.id } },
-                        "Rule deleted",
-                      )
-                    }
-                  >
-                    <Trash2 size={15} />
-                  </button>
+          <div
+            className="record-scroll"
+            role="region"
+            aria-label="Automation rules"
+            tabIndex={0}
+          >
+            {wa.rules.map((r) => (
+              <div className="list-item" key={r.id}>
+                <span className="list-icon">
+                  <Clock size={18} />
                 </span>
-              )}
-            </div>
-          ))}
-</div>
+                <div>
+                  <strong>{r.name}</strong>
+                  <small>
+                    {r.audience} · {r.offsetDays >= 0 ? "+" : ""}
+                    {r.offsetDays} days · {r.templateName}
+                    {!r.isActive && " · paused"}
+                  </small>
+                </div>
+                {owner && (
+                  <span>
+                    <button
+                      className="small-button"
+                      disabled={busy || !!rule}
+                      onClick={() => setRule(r)}
+                    >
+                      Edit
+                    </button>{" "}
+                    <button
+                      className="danger-button"
+                      aria-label={`Delete reminder rule ${r.name}`}
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(
+                          { type: "reminderRuleDelete", payload: { id: r.id } },
+                          "Rule deleted",
+                        )
+                      }
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
           {!wa.rules.length && (
             <p className="helper">No rules yet. Add defaults from Templates.</p>
           )}
@@ -631,25 +655,33 @@ export function Messaging({
             <h2>Message log</h2>
             <Badge2 ok text={`${wa.messages.length} recent`} />
           </div>
-          <div className="record-scroll" role="region" aria-label="Message delivery records" tabIndex={0}>
-{wa.messages.map((m) => (
-            <div className="list-item" key={m.id}>
-              <MemberAvatar name={memberName(m.memberId)} photo={data.members.find(x=>x.id===m.memberId)?.photo}/>
-              <div>
-                <strong>
-                  {memberName(m.memberId)}
-                  {m.direction === "in" ? " replied" : ""}
-                </strong>
-                <small>
-                  {stamp(m.at)} · {m.templateName || "message"} ·{" "}
-                  {statusLabel(m.status)}
-                  {m.error && " · " + m.error}
-                </small>
-                <p className="helper">{m.body}</p>
+          <div
+            className="record-scroll"
+            role="region"
+            aria-label="Message delivery records"
+            tabIndex={0}
+          >
+            {wa.messages.map((m) => (
+              <div className="list-item" key={m.id}>
+                <MemberAvatar
+                  name={memberName(m.memberId)}
+                  photo={data.members.find((x) => x.id === m.memberId)?.photo}
+                />
+                <div>
+                  <strong>
+                    {memberName(m.memberId)}
+                    {m.direction === "in" ? " replied" : ""}
+                  </strong>
+                  <small>
+                    {stamp(m.at)} · {m.templateName || "message"} ·{" "}
+                    {statusLabel(m.status)}
+                    {m.error && " · " + m.error}
+                  </small>
+                  <p className="helper">{m.body}</p>
+                </div>
               </div>
-            </div>
-          ))}
-</div>
+            ))}
+          </div>
           {!wa.messages.length && (
             <p className="helper">No messages sent or received yet.</p>
           )}
@@ -669,7 +701,11 @@ export function Messaging({
               Only the admin can change WhatsApp settings.
             </p>
           ) : (
-            <form className="inline-form" onSubmit={submitConfig} onChange={() => setEditorDirty(true)}>
+            <form
+              className="inline-form"
+              onSubmit={submitConfig}
+              onChange={() => setEditorDirty(true)}
+            >
               <div className="form-grid">
                 <label>
                   Phone number ID

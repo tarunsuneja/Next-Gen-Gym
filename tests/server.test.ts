@@ -124,3 +124,53 @@ test("disabled staff are excluded and outgoing template parameters keep their po
     globalThis.fetch = original;
   }
 });
+import { dispatchMessage } from "../functions/api/whatsapp/dispatch";
+test("dispatch claims prevent duplicate sends and uncertain persistence never becomes a definitive failure", async () => {
+  const original = globalThis.fetch;
+  const input = {
+    key: "scheduled:test-key",
+    gymId: "gym",
+    memberId: "member",
+    phoneNumberId: "123",
+    to: "9876543210",
+    templateName: "test",
+    language: "en",
+    variables: [],
+    vars: {},
+    body: "hello",
+  };
+  let providerCalls = 0,
+    claimed = true,
+    failAccepted = false;
+  const finished: string[] = [];
+  globalThis.fetch = async (url, init) => {
+    const text = String(url),
+      body = JSON.parse(String(init?.body || "{}"));
+    if (text.includes("wa_claim_dispatch"))
+      return new Response(JSON.stringify(claimed));
+    if (text.includes("graph.facebook.com")) {
+      providerCalls++;
+      return new Response(JSON.stringify({ messages: [{ id: "provider-1" }] }));
+    }
+    if (text.includes("wa_finish_dispatch")) {
+      finished.push(body.p_state);
+      if (failAccepted && body.p_state === "accepted")
+        return new Response("unavailable", { status: 503 });
+      return new Response("null");
+    }
+    throw Error("Unexpected test request");
+  };
+  try {
+    assert.equal((await dispatchMessage(env, input)).status, "sent");
+    assert.equal(providerCalls, 1);
+    claimed = false;
+    assert.equal((await dispatchMessage(env, input)).status, "skipped");
+    assert.equal(providerCalls, 1);
+    claimed = true;
+    failAccepted = true;
+    assert.equal((await dispatchMessage(env, input)).status, "unknown");
+    assert.deepEqual(finished, ["accepted", "accepted", "unknown"]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

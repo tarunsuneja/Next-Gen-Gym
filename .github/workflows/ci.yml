@@ -25,8 +25,14 @@ jobs:
         run: npm run check:server
       - name: DB migration tests (PGlite)
         run: npm run test:db
+      - name: Algorithm performance and output parity
+        run: npm run test:performance
       - name: Build
         run: npm run build
+      - name: Compressed bundle budgets
+        run: npm run check:bundle
+      - name: Service worker cache regressions
+        run: npm run test:sw
 
   live:
     needs: core
@@ -51,13 +57,23 @@ jobs:
             echo "VITE_SUPABASE_URL=$API_URL"
             echo "VITE_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY"
           } >> .env.local
+          echo "VITE_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY" >> "$GITHUB_ENV"
+      - name: Browser checkout and layout regressions
+        run: |
+          npm run dev &
+          npx wait-on http://127.0.0.1:5173
+          npm run test:checkout
+          npm run test:history
+          npm run test:dashboard-layout
+          npm run test:workspace-layout
       - name: Run live Supabase tests
         env:
           GYMDESK_TEST_URL: http://127.0.0.1:5173/
         run: |
-          npm run dev &
-          npx wait-on http://127.0.0.1:5173
           npm run test:live
+          npm run test:history:live
+          npm run test:dashboard:live
       - name: Stop local Supabase
         if: always()
         run: npx supabase stop

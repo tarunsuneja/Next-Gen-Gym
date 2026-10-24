@@ -6,6 +6,7 @@ import { seed } from "./fixtures.ts";
 import {
   expiry,
   outstanding,
+  balance,
   validatePayment,
   today,
   active,
@@ -336,14 +337,537 @@ test("database error objects retain readable messages and session errors remain 
     "Payment exceeds the pending balance.",
   );
 });
-import { whatsappUrl, welcomeMessage, receiptMessage, dueMessage } from "../src/WhatsAppActions";
+import {
+  whatsappUrl,
+  welcomeMessage,
+  receiptMessage,
+  dueMessage,
+} from "../src/WhatsAppActions";
 test("WhatsApp actions encode messages and use recorded payment and balance details", () => {
-  const data=seed(), member=data.members[0], payment=data.payments.find(p=>p.memberId===member.id)!;
-  assert.equal(whatsappUrl("98765 43210", "Hello & welcome"), "https://wa.me/919876543210?text=Hello%20%26%20welcome");
-  assert.equal(whatsappUrl("+91 98765 43210", "Hi"), "https://wa.me/919876543210?text=Hi");
+  const data = seed(),
+    member = data.members[0],
+    payment = data.payments.find((p) => p.memberId === member.id)!;
+  assert.equal(
+    whatsappUrl("98765 43210", "Hello & welcome"),
+    "https://wa.me/919876543210?text=Hello%20%26%20welcome",
+  );
+  assert.equal(
+    whatsappUrl("+91 98765 43210", "Hi"),
+    "https://wa.me/919876543210?text=Hi",
+  );
   assert.equal(whatsappUrl("123", "Hi"), null);
-  assert.ok(welcomeMessage(data,member).includes(member.name));
-  assert.ok(receiptMessage(data,payment).includes(payment.receipt));
-  assert.ok(receiptMessage(data,payment).includes(payment.method));
-  assert.ok(dueMessage(data,member).includes(member.name));
+  assert.ok(welcomeMessage(data, member).includes(member.name));
+  assert.ok(receiptMessage(data, payment).includes(payment.receipt));
+  assert.ok(receiptMessage(data, payment).includes(payment.method));
+  assert.ok(dueMessage(data, member).includes(member.name));
+});
+import { buildWorkspaceIndex } from "../src/domain/workspaceIndex";
+import { parseWorkspace } from "../src/data/workspaceContract";
+import {
+  commitAndRefresh,
+  CommittedRefreshError,
+} from "../src/data/commandResult";
+import { affectedSections } from "../src/data/invalidation";
+test("indexed balances preserve void, cancellation and historical balance semantics", () => {
+  const data = seed();
+  data.payments[0].voided = true;
+  data.memberships[0].cancelled = true;
+  const index = buildWorkspaceIndex(data);
+  for (const member of data.members)
+    assert.equal(index.balance(member.id), balance(data, member.id));
+  for (const membership of data.memberships)
+    assert.equal(index.outstanding(membership), outstanding(data, membership));
+});
+test("workspace boundary rejects malformed data and unsafe money without discarding optional fields", () => {
+  const data = seed();
+  assert.equal(parseWorkspace(data), data);
+  assert.throws(() => parseWorkspace({ ...data, members: null }), /members/);
+  assert.throws(
+    () =>
+      parseWorkspace({
+        ...data,
+        payments: [{ ...data.payments[0], amount: Infinity }],
+      }),
+    /amount/,
+  );
+  assert.throws(() => parseWorkspace({ ...data, gym: null }), /gym/);
+});
+test("a failed refresh after commit is distinct from a rejected command", async () => {
+  let writes = 0;
+  await assert.rejects(
+    () =>
+      commitAndRefresh(
+        "stable",
+        async () => {
+          writes++;
+        },
+        async () => {
+          throw Error("offline");
+        },
+      ),
+    (error) =>
+      error instanceof CommittedRefreshError &&
+      error.committed &&
+      error.requestId === "stable",
+  );
+  assert.equal(writes, 1);
+  let reads = 0;
+  await assert.rejects(
+    () =>
+      commitAndRefresh(
+        "stable",
+        async () => {
+          throw Error("rejected");
+        },
+        async () => {
+          reads++;
+          return null;
+        },
+      ),
+    /rejected/,
+  );
+  assert.equal(reads, 0);
+  assert(
+    affectedSections({
+      type: "memberDelete",
+      payload: { id: "test" },
+    }).includes("attendance"),
+  );
+  assert.deepEqual(
+    affectedSections({ type: "checkout", payload: { id: "test" } }),
+    ["audit", "attendance"],
+  );
+});
+import { BoundedCache } from "../src/shared/BoundedCache";
+import { latest } from "../src/domain";
+test("performance indexes preserve eligibility, latest period and overdue semantics", () => {
+  const data = seed(),
+    index = buildWorkspaceIndex(data);
+  for (const member of data.members) {
+    assert.equal(index.active(member.id), active(data, member));
+    assert.equal(index.latest(member.id)?.id, latest(data, member.id)?.id);
+    assert.equal(index.overdue(member.id), overdue(data, member.id));
+  }
+});
+test("bounded photo cache expires entries, evicts least recently used values and clears sessions", () => {
+  let now = 0;
+  const cache = new BoundedCache<string, number>(2, 100, () => now);
+  cache.set("a", 1);
+  cache.set("b", 2);
+  assert.equal(cache.get("a"), 1);
+  cache.set("c", 3);
+  assert.equal(cache.get("b"), undefined);
+  assert.equal(cache.size, 2);
+  now = 101;
+  assert.equal(cache.get("a"), undefined);
+  cache.clear();
+  assert.equal(cache.size, 0);
+});
+test("chart aggregation converts timestamps once per payment and retains daily amounts", () => {
+  const data = seed();
+  let calls = 0;
+  const chart = chartBuckets("30", today(), data.payments, (iso) => {
+    calls++;
+    return kolkataDay(iso);
+  });
+  assert.equal(calls, data.payments.length);
+  for (const bucket of chart.buckets)
+    assert.equal(
+      bucket.total,
+      data.payments
+        .filter((p) => kolkataDay(p.at) === bucket.key)
+        .reduce((s, p) => s + p.amount, 0),
+    );
+});
+import { dashboardMetrics } from "../src/features/dashboard/selectors";
+test("memoized dashboard selector preserves totals across every date range", () => {
+  const data = seed(),
+    day = today(),
+    index = buildWorkspaceIndex(data);
+  for (const range of ["today", "7", "30", "month"] as const) {
+    const metrics = dashboardMetrics(data, day, range, range, index);
+    const window = dashWindow(range, day);
+    const payments = data.payments.filter(
+      (p) =>
+        !p.voided &&
+        kolkataDay(p.at) >= window.from &&
+        kolkataDay(p.at) <= window.to,
+    );
+    assert.equal(
+      metrics.rangeCash,
+      payments.reduce((sum, p) => sum + p.amount, 0),
+    );
+    assert.equal(metrics.rangePayments.length, payments.length);
+    assert.equal(
+      metrics.pending,
+      data.members.reduce((sum, m) => sum + balance(data, m.id), 0),
+    );
+    assert.equal(
+      metrics.activeCount,
+      data.members.filter((m) => active(data, m)).length,
+    );
+    assert.equal(
+      metrics.rangeJoins,
+      data.members.filter(
+        (m) => m.joined >= window.from && m.joined <= window.to,
+      ).length,
+    );
+  }
+});
+
+import { mergeWorkspaceSections } from "../src/data/workspaceContract";
+test("scoped refresh validates changed rows without traversing retained history", () => {
+  const previous = seed();
+  const payments = new Proxy(previous.payments, {
+    get(target, key, receiver) {
+      if (key === "entries") throw Error("Unchanged history was traversed");
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  const retained = { ...previous, payments };
+  const merged = mergeWorkspaceSections(
+    retained,
+    { plans: previous.plans, payments: [] },
+    ["plans"],
+  );
+  assert.equal(merged.payments, payments);
+  assert.equal(merged.members, previous.members);
+  assert.throws(
+    () =>
+      mergeWorkspaceSections(
+        previous,
+        { plans: [{ id: "x", name: "Bad", price: NaN }] },
+        ["plans"],
+      ),
+    /plans/,
+  );
+  assert.throws(
+    () => mergeWorkspaceSections(previous, {}, ["payments"]),
+    /payments/,
+  );
+  assert.throws(
+    () => mergeWorkspaceSections(previous, { payments: null }, ["payments"]),
+    /payments/,
+  );
+});
+
+import { csvBlob, csvRow } from "../src/shared/csv";
+test("batched CSV is byte-compatible across batch boundaries and protects formulas", async () => {
+  const rows = Array.from({ length: 1001 }, (_, i) => [
+    i,
+    'a,"b',
+    "=SUM(A1)",
+    "₹1500",
+  ]);
+  const expected = Buffer.from(
+    "\uFEFF" +
+      rows
+        .map((row) =>
+          row
+            .map(
+              (cell) =>
+                '"' +
+                String(cell)
+                  .replace(/^[=+@-]/, "'")
+                  .replaceAll('"', '""') +
+                '"',
+            )
+            .join(","),
+        )
+        .join("\r\n"),
+  );
+  const blob = await csvBlob(rows);
+  assert.deepEqual(Buffer.from(await blob.arrayBuffer()), expected);
+  assert.equal(
+    csvRow(["+cmd", "@x", "-1", "normal"]),
+    `"'cmd","'x","'1","normal"`,
+  );
+  assert.deepEqual(
+    Buffer.from(await (await csvBlob([])).arrayBuffer()),
+    Buffer.from("\uFEFF"),
+  );
+});
+
+import { exportPages, parseExportPage } from "../src/data/exportContract";
+import { csvPagedBlob } from "../src/shared/csv";
+test("receipt exports retain one revision, traverse every page and stop on edits or cancellation", async () => {
+  const controller = new AbortController();
+  const records = Array.from({ length: 503 }, (_, i) => ({
+    id: `10000000-0000-0000-0000-${String(i).padStart(12, "0")}`,
+    at: "2026-10-24T06:00:00+00:00",
+    cells: [`GD-${i}`, "Member", "2026-10-24", "Cash", 1500.25, "Valid"],
+  }));
+  const revisions = [];
+  const pages = exportPages(async (after, revision) => {
+    revisions.push(revision);
+    const offset = after ? records.findIndex((r) => r.id === after.id) + 1 : 0;
+    const rows = records.slice(offset, offset + 250);
+    const hasMore = offset + rows.length < records.length;
+    const last = rows.at(-1);
+    return {
+      revision: "10000000-0000-0000-0000-000000000001:9007199254740993",
+      rows,
+      hasMore,
+      nextCursor: hasMore ? { at: last.at, id: last.id } : null,
+    };
+  }, controller.signal);
+  const blob = await csvPagedBlob(["Receipt"], pages, controller.signal);
+  assert.deepEqual(revisions, [
+    undefined,
+    "10000000-0000-0000-0000-000000000001:9007199254740993",
+    "10000000-0000-0000-0000-000000000001:9007199254740993",
+  ]);
+  assert.equal((await blob.text()).split("\r\n").length, 504);
+  assert((await blob.text()).includes("GD-502"));
+  assert.throws(
+    () =>
+      parseExportPage(
+        {
+          revision: "10000000-0000-0000-0000-000000000001:2",
+          rows: [],
+          hasMore: false,
+          nextCursor: null,
+        },
+        null,
+        "10000000-0000-0000-0000-000000000001:1",
+      ),
+    /changed/,
+  );
+  assert.throws(
+    () =>
+      parseExportPage(
+        {
+          revision: "10000000-0000-0000-0000-000000000001:1",
+          rows: records.slice(0, 250).reverse(),
+          hasMore: false,
+          nextCursor: null,
+        },
+        null,
+      ),
+    /Invalid/,
+  );
+  assert.throws(
+    () =>
+      parseExportPage(
+        {
+          revision: "10000000-0000-0000-0000-000000000001:1",
+          rows: [],
+          hasMore: true,
+          nextCursor: null,
+        },
+        null,
+      ),
+    /Invalid/,
+  );
+  let calls = 0;
+  controller.abort();
+  await assert.rejects(async () => {
+    for await (const _page of exportPages(async () => {
+      calls++;
+      return {};
+    }, controller.signal)) {
+    }
+  }, /abort/i);
+  assert.equal(calls, 0);
+});
+
+test("export cursors preserve PostgreSQL microsecond ordering", () => {
+  const cells = ["Receipt", "Member", "Date", "Cash", 1500.25, "Valid"];
+  const rows = [
+    {
+      id: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      at: "2026-10-24T06:00:00.000001+00:00",
+      cells,
+    },
+    {
+      id: "00000000-0000-0000-0000-000000000000",
+      at: "2026-10-24T06:00:00.000002+00:00",
+      cells,
+    },
+  ];
+  assert.equal(
+    parseExportPage(
+      {
+        revision: "10000000-0000-0000-0000-000000000001:1",
+        rows,
+        hasMore: false,
+        nextCursor: null,
+      },
+      null,
+    ).rows.length,
+    2,
+  );
+  assert.throws(
+    () =>
+      parseExportPage(
+        {
+          revision: "10000000-0000-0000-0000-000000000001:1",
+          rows: [rows[1], rows[0]],
+          hasMore: false,
+          nextCursor: null,
+        },
+        null,
+      ),
+    /Invalid/,
+  );
+});
+
+import { dashboardFixture } from "./fixtures";
+import { requiresFullHistory } from "../src/data/readModel";
+test("compact dashboard preserves lifetime dues, all ranges, charts and visit metrics", () => {
+  const full = seed(),
+    day = today();
+  const payment = full.payments[0],
+    visit = full.attendance[0];
+  for (let i = 0; i < 240; i++) {
+    const date = shiftDay(day, -(i % 75));
+    full.payments.push({
+      ...payment,
+      id: id(),
+      receipt: `PARITY-${i}`,
+      at: date + "T00:00:00.000Z",
+      amount: 1051 + i,
+      voided: i % 7 === 0,
+    });
+    full.attendance.push({
+      ...visit,
+      id: id(),
+      day: date,
+      at: date + "T00:00:00.000Z",
+    });
+  }
+  full.payments.sort(
+    (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
+  );
+  full.attendance.sort(
+    (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
+  );
+  const compact = dashboardFixture(full),
+    index = buildWorkspaceIndex(compact);
+  assert(compact.payments.length <= 5);
+  assert(compact.attendance.length < full.attendance.length);
+  for (const m of full.members) {
+    assert.equal(index.balance(m.id), balance(full, m.id));
+    assert.equal(balance(compact, m.id), balance(full, m.id));
+    assert.equal(index.overdue(m.id, day), overdue(full, m.id));
+  }
+  for (const range of ["today", "7", "30", "month"] as const)
+    for (const chartRange of ["today", "7", "30", "month"] as const) {
+      const before = dashboardMetrics(
+        full,
+        day,
+        range,
+        chartRange,
+        buildWorkspaceIndex(full),
+      );
+      const after = dashboardMetrics(compact, day, range, chartRange, index);
+      for (const field of [
+        "pending",
+        "activeCount",
+        "rangeCash",
+        "prevCash",
+        "rangePaymentCount",
+        "rangeJoins",
+        "prevJoins",
+        "rangeVisits",
+        "prevVisits",
+        "chartTotal",
+      ] as const)
+        assert.equal(
+          after[field],
+          before[field],
+          `${range}/${chartRange}/${field}`,
+        );
+      assert.deepEqual(after.chart, before.chart);
+      assert.deepEqual(after.checkins, before.checkins);
+    }
+  assert.doesNotThrow(() => parseWorkspace(compact));
+  const damaged = structuredClone(compact);
+  damaged.dashboard!.hours = [{ hour: 24, amount: 1 }];
+  assert.throws(() => parseWorkspace(damaged), /dashboard/);
+  const context = {
+    page: "Dashboard",
+    modal: false,
+    member: false,
+    search: false,
+  };
+  assert.equal(requiresFullHistory(compact, context), false);
+  for (const page of [
+    "Members",
+    "Fees & receipts",
+    "Attendance",
+    "Reminders",
+    "Settings",
+    "Reports",
+    "Audit",
+  ])
+    assert(requiresFullHistory(compact, { ...context, page }));
+  for (const key of ["modal", "member", "search"])
+    assert(requiresFullHistory(compact, { ...context, [key]: true }));
+  assert.equal(
+    requiresFullHistory(full, { ...context, page: "Reports" }),
+    false,
+  );
+});
+
+import { operationalLists } from "../src/app/operationalLists";
+test("operational filtering retains date, void, inside and search semantics only on active pages", () => {
+  const data = seed(),
+    members = new Map(data.members.map((m) => [m.id, m])),
+    day = today();
+  const base = {
+    page: "Fees & receipts",
+    query: "",
+    filter: "All",
+    attendanceTab: "History",
+    day,
+    range: null,
+  };
+  assert.deepEqual(
+    operationalLists(data, members, base).visiblePayments,
+    data.payments,
+  );
+  const todayPayments = data.payments.filter(
+    (p) => !p.voided && kolkataDay(p.at) === day,
+  );
+  assert.deepEqual(
+    operationalLists(data, members, { ...base, filter: "Today" })
+      .visiblePayments,
+    todayPayments,
+  );
+  assert.deepEqual(
+    operationalLists(data, members, { ...base, range: { from: day, to: day } })
+      .visiblePayments,
+    todayPayments,
+  );
+  const visits = data.attendance.filter((a) => a.day === day && !a.outAt);
+  assert.deepEqual(
+    operationalLists(data, members, {
+      ...base,
+      page: "Attendance",
+      attendanceTab: "Inside",
+    }).attendanceRows,
+    visits,
+  );
+  const query = data.members[0].phone;
+  assert.deepEqual(
+    operationalLists(data, members, { ...base, page: "Attendance", query })
+      .attendanceRows,
+    data.attendance.filter((a) => {
+      const m = members.get(a.memberId);
+      return `${m?.name} ${m?.phone}`.includes(query);
+    }),
+  );
+  const guarded = new Proxy(data.payments, {
+    get() {
+      throw Error("Dashboard must not scan receipt history");
+    },
+  });
+  assert.deepEqual(
+    operationalLists({ ...data, payments: guarded }, members, {
+      ...base,
+      page: "Dashboard",
+    }),
+    { visiblePayments: [], attendanceRows: [] },
+  );
 });

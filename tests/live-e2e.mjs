@@ -9,6 +9,10 @@ import {
   unique,
 } from "./live-harness.mjs";
 
+if (process.env.GYMDESK_ALLOW_LIVE_WRITES !== "disposable")
+  throw Error(
+    "Live write tests require GYMDESK_ALLOW_LIVE_WRITES=disposable and a disposable seeded database.",
+  );
 const browser = await launch();
 await mkdir("artifacts/live", { recursive: true });
 const admin = await connect();
@@ -42,30 +46,60 @@ try {
   });
 
   // Register member, membership and full payment in one submission.
-  const name=unique("Live Member"),phone="9"+String(Date.now()).slice(-9);
-  await page.getByRole("button",{name:"Add member",exact:true}).click();
-  await page.getByLabel("Full name",{exact:true}).fill(name);
-  await page.getByLabel("Phone number",{exact:true}).fill(phone);
+  const name = unique("Live Member"),
+    phone = "9" + String(Date.now()).slice(-9);
+  await page.getByRole("button", { name: "Add member", exact: true }).click();
+  await page.getByLabel("Full name", { exact: true }).fill(name);
+  await page.getByLabel("Phone number", { exact: true }).fill(phone);
   await page.getByLabel("Gender").selectOption("Female");
   await page.getByLabel("Height (cm)").fill("165");
-  await page.getByLabel("Payment method",{exact:true}).selectOption("UPI");
-  await page.getByLabel("Transaction reference",{exact:true}).fill(unique("UPI"));
-  await page.getByRole("button",{name:"Complete registration",exact:true}).click();
-  await page.getByRole("heading",{name:"Payment receipt",exact:true}).waitFor();
-  let d=await read(admin);
-  const member=d.members.find(m=>m.name===name);
-  assert(member);assert.equal(member.gender,"Female");
-  const period=d.memberships.find(s=>s.memberId===member.id);
-  const paid=d.payments.find(p=>p.membershipId===period.id&&!p.voided);
-  assert.equal(paid.amount,period.amount);assert.equal(paid.method,"UPI");assert.match(paid.receipt,/^GD-\d{6,}$/);
-  await page.screenshot({path:"artifacts/live/receipt.png",fullPage:true,animations:"disabled"});
-  await page.getByRole("button",{name:"Close dialog",exact:true}).click();
-  await page.getByRole("button",{name:"Renew",exact:true}).click();
-  await page.getByRole("button",{name:"Complete membership & payment",exact:true}).click();
-  await page.getByRole("heading",{name:"Payment receipt",exact:true}).waitFor();
-  d=await read(admin);assert.equal(d.payments.filter(p=>p.memberId===member.id&&!p.voided).length,2);
-  for(const s of d.memberships.filter(s=>s.memberId===member.id))assert.equal(d.payments.filter(p=>p.membershipId===s.id&&!p.voided).reduce((a,p)=>a+p.amount,0),s.amount);
-  await page.getByRole("button",{name:"Close dialog",exact:true}).click();
+  await page.getByLabel("Payment method", { exact: true }).selectOption("UPI");
+  await page
+    .getByLabel("Transaction reference", { exact: true })
+    .fill(unique("UPI"));
+  await page
+    .getByRole("button", { name: "Complete registration", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Payment receipt", exact: true })
+    .waitFor();
+  let d = await read(admin);
+  const member = d.members.find((m) => m.name === name);
+  assert(member);
+  assert.equal(member.gender, "Female");
+  const period = d.memberships.find((s) => s.memberId === member.id);
+  const paid = d.payments.find(
+    (p) => p.membershipId === period.id && !p.voided,
+  );
+  assert.equal(paid.amount, period.amount);
+  assert.equal(paid.method, "UPI");
+  assert.match(paid.receipt, /^GD-\d{6,}$/);
+  await page.screenshot({
+    path: "artifacts/live/receipt.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
+  await page.getByRole("button", { name: "Renew", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Complete membership & payment", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Payment receipt", exact: true })
+    .waitFor();
+  d = await read(admin);
+  assert.equal(
+    d.payments.filter((p) => p.memberId === member.id && !p.voided).length,
+    2,
+  );
+  for (const s of d.memberships.filter((s) => s.memberId === member.id))
+    assert.equal(
+      d.payments
+        .filter((p) => p.membershipId === s.id && !p.voided)
+        .reduce((a, p) => a + p.amount, 0),
+      s.amount,
+    );
+  await page.getByRole("button", { name: "Close dialog", exact: true }).click();
 
   // 6. Record attendance.
   await page.getByRole("button", { name: "Attendance", exact: true }).click();

@@ -1,3 +1,5 @@
+import { internationalPhone } from "../../../src/shared/phone";
+import { fetchWithDeadline, ProviderRejectedError } from "./transport";
 export type Env = {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -24,19 +26,37 @@ export async function rpc<T = unknown>(
   fn: string,
   args: Record<string, unknown>,
 ): Promise<T> {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(args),
-  });
-  const text = await res.text();
-  if (!res.ok)
-    throw new Error(`Database call ${fn} failed (${res.status}): ${text}`);
-  return (text ? JSON.parse(text) : null) as T;
+  const started = Date.now();
+  let status = 0;
+  try {
+    const res = await fetchWithDeadline(
+      `${env.SUPABASE_URL}/rest/v1/rpc/${fn}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(args),
+      },
+    );
+    status = res.status;
+    const text = await res.text();
+    if (!res.ok)
+      throw new Error(`Database call ${fn} failed (${res.status}): ${text}`);
+    return (text ? JSON.parse(text) : null) as T;
+  } finally {
+    // Deliberately exclude arguments, tokens, member details and response bodies.
+    console.info(
+      JSON.stringify({
+        event: "database_rpc",
+        operation: fn,
+        status,
+        durationMs: Date.now() - started,
+      }),
+    );
+  }
 }
 
 export async function authUser(
@@ -46,7 +66,7 @@ export async function authUser(
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!token) return null;
-  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+  const res = await fetchWithDeadline(`${env.SUPABASE_URL}/auth/v1/user`, {
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
       authorization: `Bearer ${token}`,
@@ -61,7 +81,7 @@ export async function staffProfile(
   env: Env,
   userId: string,
 ): Promise<{ role: string; gym_id: string } | null> {
-  const res = await fetch(
+  const res = await fetchWithDeadline(
     `${env.SUPABASE_URL}/rest/v1/staff_profiles?user_id=eq.${encodeURIComponent(
       userId,
     )}&enabled=eq.true&select=role,gym_id`,
@@ -82,12 +102,7 @@ export const renderBody = (body: string, vars: Record<string, unknown>) =>
     String(vars[key] ?? ""),
   );
 
-export function metaPhone(phone: string) {
-  let digits = String(phone || "").replace(/[^0-9]/g, "");
-  if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
-  if (digits.length === 10) digits = "91" + digits;
-  return digits;
-}
+export const metaPhone = internationalPhone;
 
 export type SendInput = {
   phoneNumberId: string;
@@ -107,7 +122,7 @@ export async function sendMeta(
   const params = input.variables.map((v) => {
     const text = String(input.vars[v] ?? "").trim();
     if (!text)
-      throw new Error(
+      throw new ProviderRejectedError(
         `Missing template value: ${v}. Update the gym or member details before sending.`,
       );
     return { type: "text", text };
@@ -124,7 +139,7 @@ export async function sendMeta(
         : {}),
     },
   };
-  const res = await fetch(
+  const res = await fetchWithDeadline(
     `https://graph.facebook.com/${version}/${input.phoneNumberId}/messages`,
     {
       method: "POST",
@@ -136,10 +151,13 @@ export async function sendMeta(
     },
   );
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.error)
-    throw new Error(
+  if (!res.ok || data?.error) {
+    const ErrorType =
+      res.status >= 400 && res.status < 500 ? ProviderRejectedError : Error;
+    throw new ErrorType(
       data?.error?.message || `WhatsApp API error (${res.status})`,
     );
+  }
   if (!data?.messages?.[0]?.id)
     throw new Error("WhatsApp did not return a message ID.");
   return { id: data.messages[0].id };

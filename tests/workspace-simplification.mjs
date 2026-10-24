@@ -19,11 +19,31 @@ try {
     const day = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kolkata",
     }).format(new Date());
-    data.audit = Array.from({ length: 40 }, (_, i) => ({id: `scroll-audit-${i}`, at: new Date().toISOString(), actor: userEmail(), action: "member", payload: {name: `Member ${i}`}}));
-    function userEmail() { return "layout@example.invalid"; }
-    data.whatsapp.messages = Array.from({ length: 40 }, (_, i) => ({id: `scroll-message-${i}`, memberId: data.members[0].id, at: new Date().toISOString(), direction: "out", status: "sent", body: `Layout test message ${i}`, templateName: "payment_reminder"}));
-    data.members[0].photo = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#cc1535"/></svg>');
-    data.members[1].photo = 'data:image/jpeg;base64,broken';
+    data.audit = Array.from({ length: 40 }, (_, i) => ({
+      id: `scroll-audit-${i}`,
+      at: new Date().toISOString(),
+      actor: userEmail(),
+      action: "member",
+      payload: { name: `Member ${i}` },
+    }));
+    function userEmail() {
+      return "layout@example.invalid";
+    }
+    data.whatsapp.messages = Array.from({ length: 40 }, (_, i) => ({
+      id: `scroll-message-${i}`,
+      memberId: data.members[0].id,
+      at: new Date().toISOString(),
+      direction: "out",
+      status: "sent",
+      body: `Layout test message ${i}`,
+      templateName: "payment_reminder",
+    }));
+    data.members[0].photo =
+      "data:image/svg+xml," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#cc1535"/></svg>',
+      );
+    data.members[1].photo = "data:image/jpeg;base64,broken";
     data.members[0].dob = "1995" + day.slice(4);
     data.members[0].joined = day;
     const user = {
@@ -68,7 +88,8 @@ try {
     await page.route("**/rest/v1/rpc/**", async (r) => {
       const path = new URL(r.request().url()).pathname;
       let result;
-      if (path.endsWith("/get_gym_data")) result = data;
+      if (path.endsWith("/get_gym_data") || path.endsWith("/get_gym_dashboard"))
+        result = data;
       else if (path.endsWith("/my_role")) result = "owner";
       else if (path.endsWith("/gym_action")) {
         const action = r.request().postDataJSON();
@@ -218,6 +239,7 @@ try {
     assert.equal(await page.locator(".attendance-entry").count(), 0);
     await page.getByRole("tab", { name: "Inside", exact: true }).click();
     assert.equal(await page.locator(".table-scroll").count(), 0);
+    await page.locator(".attendance-entry").first().waitFor();
     assert.equal(await page.locator(".attendance-entry").count(), 3);
     await page
       .locator(".attendance-entry")
@@ -259,8 +281,14 @@ try {
       .fill("Unsaved fixture {{member_name}}");
     acceptDialog = false;
     await nav("Settings");
-    await page.getByRole("heading", {name:"Reminders",exact:true}).waitFor();
-    assert.equal(await page.getByLabel("Message body",{exact:true}).inputValue(), "Unsaved fixture {{member_name}}", "Page navigation must preserve rejected-discard edits");
+    await page
+      .getByRole("heading", { name: "Reminders", exact: true })
+      .waitFor();
+    assert.equal(
+      await page.getByLabel("Message body", { exact: true }).inputValue(),
+      "Unsaved fixture {{member_name}}",
+      "Page navigation must preserve rejected-discard edits",
+    );
     await page.getByRole("tab", { name: "Delivery log", exact: true }).click();
     assert.equal(
       await page
@@ -295,16 +323,29 @@ try {
       );
     }
     await nav("Reminders");
-    await page.getByRole("tab",{name:"Automated",exact:true}).click();
-    await page.getByRole("button",{name:"Setup",exact:true}).click();
-    await page.getByLabel("Phone number ID",{exact:true}).fill("unsaved-phone-id");
-    acceptDialog=false;
+    await page.getByRole("tab", { name: "Automated", exact: true }).click();
+    await page.getByRole("button", { name: "Setup", exact: true }).click();
+    await page
+      .getByLabel("Phone number ID", { exact: true })
+      .fill("unsaved-phone-id");
+    acceptDialog = false;
     await nav("Dashboard");
-    await page.getByRole("heading",{name:"WhatsApp Cloud API",exact:true}).waitFor();
-    assert.equal(await page.getByLabel("Phone number ID",{exact:true}).inputValue(),"unsaved-phone-id");
-    await page.getByRole("button",{name:"Queue",exact:false}).first().click();
-    assert.equal(await page.getByLabel("Phone number ID",{exact:true}).inputValue(),"unsaved-phone-id");
-    acceptDialog=true;
+    await page
+      .getByRole("heading", { name: "WhatsApp Cloud API", exact: true })
+      .waitFor();
+    assert.equal(
+      await page.getByLabel("Phone number ID", { exact: true }).inputValue(),
+      "unsaved-phone-id",
+    );
+    await page
+      .getByRole("button", { name: "Queue", exact: false })
+      .first()
+      .click();
+    assert.equal(
+      await page.getByLabel("Phone number ID", { exact: true }).inputValue(),
+      "unsaved-phone-id",
+    );
+    acceptDialog = true;
     await nav("Dashboard");
     await page
       .getByRole("button", { name: "Open global search", exact: true })
@@ -339,21 +380,59 @@ try {
         ]) {
           await nav(name);
           if (["Members", "Fees & receipts"].includes(name)) {
-            assert(await page.locator('.member-avatar img').count() > 0, `${name} should show saved member photos`);
+            assert(
+              (await page.locator(".member-avatar img").count()) > 0,
+              `${name} should show saved member photos`,
+            );
           }
           if (name === "Dashboard") {
-            assert.equal(await page.locator('.attention-member .member-avatar').count(),await page.locator('.attention-member').count());
+            assert.equal(
+              await page.locator(".attention-member .member-avatar").count(),
+              await page.locator(".attention-member").count(),
+            );
           }
-          const unreadable=await page.locator('main .dashboard-mini-table td, main .dashboard-mini-table th, main .helper, main .panel-header h2, main .list-item strong').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length && parseFloat(getComputedStyle(el).fontSize)<12).map(el=>({text:el.textContent.slice(0,40),size:getComputedStyle(el).fontSize})));
-          assert.deepEqual(unreadable,[], `${name}: important content below readable type scale`);
-          for (const region of await page.locator('.record-scroll:visible').all()) {
-            assert(await region.evaluate(el => el.clientHeight <= innerHeight * .65 + 2), `${name}: list exceeds viewport bound`);
+          const unreadable = await page
+            .locator(
+              "main .dashboard-mini-table td, main .dashboard-mini-table th, main .helper, main .panel-header h2, main .list-item strong",
+            )
+            .evaluateAll((elements) =>
+              elements
+                .filter(
+                  (el) =>
+                    el.getClientRects().length &&
+                    parseFloat(getComputedStyle(el).fontSize) < 12,
+                )
+                .map((el) => ({
+                  text: el.textContent.slice(0, 40),
+                  size: getComputedStyle(el).fontSize,
+                })),
+            );
+          assert.deepEqual(
+            unreadable,
+            [],
+            `${name}: important content below readable type scale`,
+          );
+          for (const region of await page
+            .locator(".record-scroll:visible")
+            .all()) {
+            assert(
+              await region.evaluate(
+                (el) => el.clientHeight <= innerHeight * 0.65 + 2,
+              ),
+              `${name}: list exceeds viewport bound`,
+            );
           }
           if (name === "Audit") {
-            const region=page.getByRole('region',{name:'Activity audit records',exact:true});
-            assert(await region.evaluate(el=>el.scrollHeight>el.clientHeight), 'Long audit list must scroll');
-            await region.evaluate(el=>el.scrollTop=el.scrollHeight);
-            assert(await region.evaluate(el=>el.scrollTop>0));
+            const region = page.getByRole("region", {
+              name: "Activity audit records",
+              exact: true,
+            });
+            assert(
+              await region.evaluate((el) => el.scrollHeight > el.clientHeight),
+              "Long audit list must scroll",
+            );
+            await region.evaluate((el) => (el.scrollTop = el.scrollHeight));
+            assert(await region.evaluate((el) => el.scrollTop > 0));
           }
           assert(
             await page.evaluate(

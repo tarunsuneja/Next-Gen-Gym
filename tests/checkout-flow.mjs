@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { launch } from "./live-harness.mjs";
-import { seed } from "./fixtures.ts";
+import { seed, dashboardFixture } from "./fixtures.ts";
 import { today, expiry, shiftDay, balance } from "../src/domain.ts";
 const browser = await launch();
 await mkdir("tests/artifacts/checkout", { recursive: true });
@@ -15,7 +15,8 @@ try {
       errors = [],
       writes = [],
       requests = new Map();
-    let failNext = false;
+    let failNext = false,
+      failReload = false;
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("dialog", (d) => d.accept());
     await page.route("https://fonts.googleapis.com/**", (r) => r.abort());
@@ -92,8 +93,19 @@ try {
     await page.route("**/rest/v1/rpc/**", async (r) => {
       const endpoint = new URL(r.request().url()).pathname.split("/").at(-1);
       let result = null;
-      if (endpoint === "get_gym_data") result = data;
-      else if (endpoint === "my_role") result = "owner";
+      if (endpoint === "get_gym_data" || endpoint === "get_gym_dashboard") {
+        if (failReload) {
+          failReload = false;
+          await r.fulfill({
+            status: 503,
+            contentType: "application/json",
+            body: JSON.stringify({ message: "reload unavailable" }),
+          });
+          return;
+        }
+        result =
+          endpoint === "get_gym_dashboard" ? dashboardFixture(data) : data;
+      } else if (endpoint === "my_role") result = "owner";
       else if (endpoint === "gym_action") {
         const a = r.request().postDataJSON();
         writes.push(a);
@@ -170,11 +182,14 @@ try {
         .getByRole("heading", { name: "Payment receipt", exact: true })
         .waitFor();
       assert(await page.getByRole("dialog").innerText());
-      const link=page.getByRole("link", {name:"WhatsApp receipt",exact:true});
-      const href=await link.getAttribute("href");
+      const link = page.getByRole("link", {
+        name: "WhatsApp receipt",
+        exact: true,
+      });
+      const href = await link.getAttribute("href");
       assert(href.startsWith("https://wa.me/91"));
       assert(decodeURIComponent(href).includes("Receipt: GD-"));
-      assert.equal(await link.getAttribute("target"),"_blank");
+      assert.equal(await link.getAttribute("target"), "_blank");
       await close();
     }
     await nav("Fees & receipts");
@@ -372,10 +387,38 @@ try {
       .getByRole("button", { name: "Edit member", exact: true })
       .waitFor();
     assert(!writes.at(-1).payload.enrollment);
-    await page.getByRole("heading",{name:"Member registered",exact:true}).waitFor();
-    const welcome=await page.getByRole("link",{name:"Send welcome",exact:true}).getAttribute("href");
+    await page
+      .getByRole("heading", { name: "Member registered", exact: true })
+      .waitFor();
+    const welcome = await page
+      .getByRole("link", { name: "Send welcome", exact: true })
+      .getAttribute("href");
     assert(welcome.includes("919876543220"));
     assert(decodeURIComponent(welcome).includes("Profile Only"));
+    await close();
+    await nav("Dashboard");
+    await page.getByRole("button", { name: "Add member", exact: true }).click();
+    await page
+      .getByLabel("Full name", { exact: true })
+      .fill("Committed Without Refresh");
+    await page.getByLabel("Phone number", { exact: true }).fill("9876543221");
+    await page.getByLabel("Add membership", { exact: true }).uncheck();
+    failReload = true;
+    await page
+      .getByRole("button", { name: "Complete registration", exact: true })
+      .click();
+    await page
+      .getByText(
+        "Saved successfully, but updated records could not be loaded.",
+        { exact: false },
+      )
+      .first()
+      .waitFor();
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(
+      data.members.filter((m) => m.name === "Committed Without Refresh").length,
+      1,
+    );
     assert.deepEqual(errors, []);
     await context.close();
   }

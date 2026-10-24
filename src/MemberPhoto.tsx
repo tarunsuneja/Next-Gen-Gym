@@ -1,3 +1,4 @@
+import { usePhoto } from "./shared/usePhoto";
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 
@@ -9,6 +10,7 @@ export function MemberPhoto({
   disabled?: boolean;
 }) {
   const [photo, setPhoto] = useState(initial);
+  const photoUrl = usePhoto(photo);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -71,7 +73,7 @@ export function MemberPhoto({
       <div className="member-photo-row">
         <div className="member-photo-preview">
           {photo ? (
-            <img src={photo} alt="Member photo preview" />
+            <img src={photoUrl} alt="Member photo preview" />
           ) : (
             <Camera size={24} aria-label="No photo" />
           )}

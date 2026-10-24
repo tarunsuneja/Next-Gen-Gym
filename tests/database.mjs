@@ -5,10 +5,10 @@ import assert from "node:assert/strict";
 const db = new PGlite();
 try {
   await db.exec(
-    `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user',true),'')::uuid $$;`,
+    `create role anon;create role authenticated;create role service_role;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user',true),'')::uuid $$;`,
   );
   for (const file of (await readdir("supabase/migrations"))
-    .filter((f) => f.endsWith(".sql") && f !== "017_full_payment_checkout.sql")
+    .filter((f) => f.endsWith(".sql") && f < "017")
     .sort()) {
     await db.exec(
       (await readFile("supabase/migrations/" + file, "utf8")).replace(
@@ -1032,23 +1032,549 @@ try {
     /No active gym/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
-  await action("plan", {name:"Enrollment test",months:1,price:150000});
-  const enrollmentPlan = (await read()).plans.find(p=>p.name === "Enrollment test");
-  const enrollment = {planId:enrollmentPlan.id,start:"2026-10-19",end:"2026-11-18",dueDate:"2026-10-19",amount:135000,baseAmount:150000,discountType:"percent",discountValue:10};
+  await action("plan", { name: "Enrollment test", months: 1, price: 150000 });
+  const enrollmentPlan = (await read()).plans.find(
+    (p) => p.name === "Enrollment test",
+  );
+  const enrollment = {
+    planId: enrollmentPlan.id,
+    start: "2026-10-19",
+    end: "2026-11-18",
+    dueDate: "2026-10-19",
+    amount: 135000,
+    baseAmount: 150000,
+    discountType: "percent",
+    discountValue: 10,
+  };
   const enrollmentRequest = crypto.randomUUID();
-  const registration = {name:"Enrollment member",phone:"9888877771",enrollment};
+  const registration = {
+    name: "Enrollment member",
+    phone: "9888877771",
+    enrollment,
+  };
   await action("member", registration, enrollmentRequest);
   await action("member", registration, enrollmentRequest);
-  const afterEnrollment=await read();
-  const enrolled=afterEnrollment.members.find(m=>m.name==="Enrollment member");
-  assert.equal(afterEnrollment.members.filter(m=>m.name==="Enrollment member").length,1);
-  const periods=afterEnrollment.memberships.filter(m=>m.memberId===enrolled.id);
-  assert.equal(periods.length,1); assert.equal(periods[0].amount,135000);
-  await assert.rejects(()=>action("member",{name:"Rollback member",phone:"9888877772",enrollment:{...enrollment,amount:1}}),/discount total/);
-  assert(!(await read()).members.some(m=>m.name==="Rollback member"), "Invalid enrollment must roll back member creation");
-  await assert.rejects(()=>action("member",{...registration,id:enrolled.id}),/only supported/);
+  const afterEnrollment = await read();
+  const enrolled = afterEnrollment.members.find(
+    (m) => m.name === "Enrollment member",
+  );
+  assert.equal(
+    afterEnrollment.members.filter((m) => m.name === "Enrollment member")
+      .length,
+    1,
+  );
+  const periods = afterEnrollment.memberships.filter(
+    (m) => m.memberId === enrolled.id,
+  );
+  assert.equal(periods.length, 1);
+  assert.equal(periods[0].amount, 135000);
+  await assert.rejects(
+    () =>
+      action("member", {
+        name: "Rollback member",
+        phone: "9888877772",
+        enrollment: { ...enrollment, amount: 1 },
+      }),
+    /discount total/,
+  );
+  assert(
+    !(await read()).members.some((m) => m.name === "Rollback member"),
+    "Invalid enrollment must roll back member creation",
+  );
+  await assert.rejects(
+    () => action("member", { ...registration, id: enrolled.id }),
+    /only supported/,
+  );
   // Verify legacy records before applying the stricter checkout policy, then exercise it.
-  await checkFullPaymentPolicy({db,action,read,owner,staff});
+  await checkFullPaymentPolicy({ db, action, read, owner, staff });
+  await db.query("select set_config('test.user',$1,false)", [owner]);
+  const snapshotBefore = await read();
+  for (const file of (await readdir("supabase/migrations"))
+    .filter((f) => f.endsWith(".sql") && f > "017_full_payment_checkout.sql")
+    .sort())
+    await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
+  const scoped = (
+    await db.query(
+      "select get_gym_sections(array['members','payments']) as data",
+    )
+  ).rows[0].data;
+  assert.equal(scoped.members.length, snapshotBefore.members.length);
+  assert(!("attendance" in scoped));
+  assert.deepEqual(scoped.payments, snapshotBefore.payments);
+  const req = crypto.randomUUID(),
+    memberPayload = {
+      name: "Compact Audit",
+      phone: "9898998877",
+      photo: "data:image/jpeg;base64,YWJj",
+    };
+  await action("member", memberPayload, req);
+  await action("member", memberPayload, req);
+  await assert.rejects(
+    () =>
+      action(
+        "member",
+        { ...memberPayload, photo: "data:image/jpeg;base64,YWJk" },
+        req,
+      ),
+    /already used/,
+  );
+  const stored = (
+    await db.query(
+      "select payload,payload_hash from action_requests where id=$1",
+      [req],
+    )
+  ).rows[0];
+  assert.equal(stored.payload.photo, "[photo recorded]");
+  assert(stored.payload_hash);
+  assert.equal(
+    (await read()).members.find((m) => m.name === "Compact Audit").photo,
+    memberPayload.photo,
+  );
+
+  const target = (await read()).members[0];
+  const dispatchKey = "scheduled:test:" + target.id;
+  const claim = () =>
+    db.query("select wa_claim_dispatch($1,$2,$3,$4) as claimed", [
+      dispatchKey,
+      g,
+      target.id,
+      "fee_due_reminder",
+    ]);
+  assert.equal((await claim()).rows[0].claimed, true);
+  assert.equal((await claim()).rows[0].claimed, false);
+  await db.query(
+    "select wa_finish_dispatch($1,$2,$3,$4,$5,$6,'unknown','contract-provider','timeout')",
+    [dispatchKey, g, target.id, "fee_due_reminder", target.phone, "test"],
+  );
+  assert.equal(
+    (await claim()).rows[0].claimed,
+    false,
+    "Unknown outcomes cannot be resent automatically",
+  );
+  const phoneNumber = (
+    await db.query(
+      "select phone_number_id from whatsapp_config where gym_id=$1",
+      [g],
+    )
+  ).rows[0].phone_number_id;
+  await db.query(
+    "select wa_set_status($1,'contract-provider','delivered','')",
+    [phoneNumber],
+  );
+  await db.query(
+    "select wa_set_status($1,'contract-provider','delivered','')",
+    [phoneNumber],
+  );
+  assert.equal(
+    (
+      await db.query(
+        "select count(*)::integer as n from message_logs where wa_message_id='contract-provider' and gym_id=$1",
+        [g],
+      )
+    ).rows[0].n,
+    1,
+    "Webhook reconciliation is idempotent",
+  );
+  const fixturePhoto = "data:image/jpeg;base64,YWJj";
+  assert.equal(
+    (await db.query("select photo_object_key($1) as key", [fixturePhoto]))
+      .rows[0].key,
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+  );
+  await action("member", {
+    ...target,
+    photo: "storage:member-photos/" + g + "/" + "a".repeat(64) + ".jpg",
+  });
+  await assert.rejects(
+    () =>
+      action("member", {
+        ...target,
+        photo:
+          "storage:member-photos/00000000-0000-0000-0000-000000000000/" +
+          "a".repeat(64) +
+          ".jpg",
+      }),
+    /Invalid profile photo/,
+  );
+
+  assert.equal(
+    (
+      await db.query(
+        "select has_function_privilege('authenticated','public.wa_claim_dispatch(text,uuid,uuid,text)','EXECUTE') as allowed",
+      )
+    ).rows[0].allowed,
+    false,
+  );
+  // Abandoned provider calls become visible ambiguous outcomes, never retryable failures.
+  const abandonedKey = "abandoned:test:" + target.id;
+  await db.query("select wa_claim_dispatch($1,$2,$3,$4)", [
+    abandonedKey,
+    g,
+    target.id,
+    "fee_due_reminder",
+  ]);
+  await db.query(
+    "update message_dispatches set updated_at=now()-interval '16 minutes' where dispatch_key=$1",
+    [abandonedKey],
+  );
+  const health = (await db.query("select wa_dispatch_health() as health"))
+    .rows[0].health;
+  assert.equal(health.recovered, 1);
+  assert(health.unknown >= 1);
+  assert.equal(
+    (
+      await db.query("select wa_claim_dispatch($1,$2,$3,$4) as claimed", [
+        abandonedKey,
+        g,
+        target.id,
+        "fee_due_reminder",
+      ])
+    ).rows[0].claimed,
+    false,
+  );
+  assert.equal(
+    (await db.query("select wa_dispatch_health() as health")).rows[0].health
+      .recovered,
+    0,
+  );
+  assert.equal(
+    (
+      await db.query(
+        "select has_function_privilege('authenticated','public.wa_dispatch_health()','EXECUTE') as allowed",
+      )
+    ).rows[0].allowed,
+    false,
+  );
+  assert(
+    (await db.query("select wa_due_messages($1::date,5) as jobs", [day]))
+      .rows[0].jobs.length <= 5,
+  );
+  // A busy tenant cannot fill an entire round before another tenant's first job.
+  await db.exec("begin");
+  await db.exec("update whatsapp_config set enabled=false");
+  const queueGyms = [crypto.randomUUID(), crypto.randomUUID()];
+  for (const queueGym of queueGyms) {
+    await db.query("insert into gyms(id,name) values($1,'Queue fixture')", [
+      queueGym,
+    ]);
+    await db.query(
+      "insert into whatsapp_config(gym_id,enabled,phone_number_id,daily_send_cap) values($1,true,'queue-test',200)",
+      [queueGym],
+    );
+    await db.query(
+      "insert into whatsapp_templates(gym_id,name,body) values($1,'queue_test','Reminder')",
+      [queueGym],
+    );
+    await db.query(
+      "insert into reminder_rules(gym_id,name,offset_days,template_name,audience) values($1,'Queue',0,'queue_test','expiring')",
+      [queueGym],
+    );
+    for (let i = 0; i < 4; i++) {
+      const queueMember = crypto.randomUUID();
+      await db.query(
+        "insert into members(id,gym_id,name,phone,whatsapp_consent) values($1,$2,'Queue member',$3,true)",
+        [queueMember, queueGym, "987650000" + i],
+      );
+      await db.query(
+        "insert into memberships(gym_id,member_id,plan_name,start_date,end_date,amount) values($1,$2,'Queue plan',$3::date,$3::date,0)",
+        [queueGym, queueMember, day],
+      );
+    }
+  }
+  const queued = (
+    await db.query("select wa_due_messages($1::date,2) as jobs", [day])
+  ).rows[0].jobs;
+  assert.equal(queued.length, 2);
+  assert.equal(new Set(queued.map((job) => job.gym_id)).size, 2);
+  const firstJob = queued[0];
+  const firstKey = `scheduled:${day}:${firstJob.gym_id}:${firstJob.member_id}:${firstJob.template_name}`;
+  await db.query("select wa_claim_dispatch($1,$2,$3,$4)", [
+    firstKey,
+    firstJob.gym_id,
+    firstJob.member_id,
+    firstJob.template_name,
+  ]);
+  const afterClaim = (
+    await db.query("select wa_due_messages($1::date,2) as jobs", [day])
+  ).rows[0].jobs;
+  assert(!afterClaim.some((job) => job.member_id === firstJob.member_id));
+  assert.equal(
+    afterClaim.length,
+    2,
+    "Already claimed jobs must not consume a later run's global limit",
+  );
+  await db.exec("rollback");
+  // Receipt exports read all pages from one unchanged tenant revision.
+  const exportPage = async (
+    cursor = null,
+    revision = null,
+    limit = 3,
+    search = "",
+  ) =>
+    (
+      await db.query("select get_payment_export_page($1,$2,$3,$4,$5) as page", [
+        limit,
+        cursor?.at ?? null,
+        cursor?.id ?? null,
+        revision,
+        search,
+      ])
+    ).rows[0].page;
+  const exportIds = new Set();
+  const exportRows = [];
+  let exportCursor = null,
+    exportRevision = null;
+  do {
+    const page = await exportPage(exportCursor, exportRevision);
+    exportRevision = page.revision;
+    assert(page.rows.length <= 3);
+    for (const row of page.rows) {
+      assert(!exportIds.has(row.id));
+      exportIds.add(row.id);
+      exportRows.push(row.cells);
+    }
+    exportCursor = page.nextCursor;
+    if (!page.hasMore) break;
+  } while (exportCursor);
+  // Names are live member names, while immutable receipt snapshots remain unchanged.
+  const exportSnapshot = await read();
+  assert.equal(exportIds.size, exportSnapshot.payments.length);
+  for (let i = 0; i < exportRows.length; i++) {
+    const payment = exportSnapshot.payments[i];
+    assert.deepEqual(exportRows[i], [
+      payment.receipt,
+      exportSnapshot.members.find((m) => m.id === payment.memberId).name,
+      payment.at,
+      payment.method,
+      payment.amount / 100,
+      payment.voided ? "Voided" : "Valid",
+    ]);
+  }
+  const sampleReceipt = exportSnapshot.payments[0].receipt;
+  const matching = await exportPage(
+    null,
+    null,
+    500,
+    sampleReceipt.toLowerCase(),
+  );
+  assert.deepEqual(
+    matching.rows.map((row) => row.cells[0]),
+    exportSnapshot.payments
+      .filter((p) =>
+        (
+          exportSnapshot.members.find((m) => m.id === p.memberId).name +
+          " " +
+          p.receipt
+        )
+          .toLowerCase()
+          .includes(sampleReceipt.toLowerCase()),
+      )
+      .map((p) => p.receipt),
+  );
+  const indiaDay = (at) =>
+    new Date(Date.parse(at) + 19800000).toISOString().slice(0, 10);
+  const exportDay = indiaDay(exportSnapshot.payments[0].at);
+  const dated = (
+    await db.query(
+      "select get_payment_export_page(p_limit=>500,p_from=>$1::date,p_to=>$1::date,p_exclude_voided=>true) as page",
+      [exportDay],
+    )
+  ).rows[0].page;
+  assert.deepEqual(
+    dated.rows.map((row) => row.id),
+    exportSnapshot.payments
+      .filter((p) => !p.voided && indiaDay(p.at) === exportDay)
+      .map((p) => p.id),
+  );
+  await assert.rejects(() => exportPage(null, null, 501), /page size/);
+  const firstExport = await exportPage();
+  assert(firstExport.hasMore);
+  await db.exec("begin");
+  await db.query("update members set name=name||' revised' where id=$1", [
+    target.id,
+  ]);
+  await assert.rejects(
+    () => exportPage(firstExport.nextCursor, firstExport.revision),
+    /changed during export/,
+  );
+  await db.exec("rollback");
+  await assert.rejects(
+    () => exportPage(firstExport.nextCursor),
+    /revision is required/,
+  );
+  await db.exec("begin");
+  const reassignedGym = crypto.randomUUID();
+  await db.query(
+    "insert into gyms(id,name,data_revision) values($1,'Reassigned gym',$2::bigint)",
+    [reassignedGym, firstExport.revision.split(":")[1]],
+  );
+  await db.query("update staff_profiles set gym_id=$1 where user_id=$2", [
+    reassignedGym,
+    owner,
+  ]);
+  await assert.rejects(
+    () => exportPage(firstExport.nextCursor, firstExport.revision),
+    /changed during export/,
+  );
+  await db.exec("rollback");
+  await db.query("select set_config('test.user',$1,false)", [staff]);
+  assert((await exportPage()).rows.length <= 3);
+  await db.query("select set_config('test.user',$1,false)", [outsider]);
+  await assert.rejects(() => exportPage(), /access/);
+  await db.query("select set_config('test.user',$1,false)", [owner]);
+  // Server histories are bounded, cursor-stable and tenant/role scoped.
+  const history = async (kind, cursor = null, limit = 3) =>
+    (
+      await db.query("select get_history_page($1,$2,$3,$4) as page", [
+        kind,
+        limit,
+        cursor?.at ?? null,
+        cursor?.id ?? null,
+      ])
+    ).rows[0].page;
+  const seen = new Set();
+  let next = null;
+  do {
+    const page = await history("payments", next);
+    assert(page.rows.length <= 3);
+    for (const p of page.rows) {
+      assert(!seen.has(p.id), "Keyset pagination must not repeat records");
+      seen.add(p.id);
+    }
+    next = page.nextCursor;
+    if (!page.hasMore) break;
+  } while (next);
+  assert.equal(
+    seen.size,
+    (await read()).payments.length,
+    "Every matching receipt can be reached",
+  );
+  assert((await history("audit")).rows.length <= 3);
+  await assert.rejects(() => history("payments", null, 101), /Page size/);
+  await db.query("select set_config('test.user',$1,false)", [staff]);
+  await assert.rejects(() => history("audit"), /Admin permission/);
+  assert((await history("payments")).rows.length <= 3);
+  await db.query("select set_config('test.user',$1,false)", [outsider]);
+  await assert.rejects(() => history("payments"), /access/);
+  await db.query("select set_config('test.user',$1,false)", [owner]);
+  // Historical volume affects summaries, never the number of raw startup rows.
+  await db.exec("begin");
+  const historyMember = crypto.randomUUID(),
+    historyPeriod = crypto.randomUUID();
+  await db.query(
+    "insert into members(id,gym_id,name,phone,joined) values($1,$2,'Historical member','9876500500',$3::date-700)",
+    [historyMember, g, day],
+  );
+  await db.query(
+    "insert into memberships(id,gym_id,member_id,plan_name,start_date,end_date,amount,due_date) values($1,$2,$3,'Historical plan',$4::date-700,$4::date+30,2000000,$4::date-700)",
+    [historyPeriod, g, historyMember, day],
+  );
+  const compactRead = async () =>
+    (await db.query("select get_gym_dashboard() as data")).rows[0].data;
+  const beforeCompact = await compactRead();
+  const beforeFull = await read();
+  await db.query(
+    "insert into payments(gym_id,membership_id,member_id,amount,method,paid_at,receipt,gym_name,gym_phone,gym_address,member_name) select $1,$2,$3,1000,'Cash',($4::date-400)::timestamp at time zone 'Asia/Kolkata'+n*interval '1 second','ARCHIVE-'||n,'Test Gym','','','Historical member' from generate_series(1,1000) n",
+    [g, historyPeriod, historyMember, day],
+  );
+  await db.query(
+    "insert into attendance(gym_id,member_id,day,checked_at) select $1,$2,$3::date-700+n,($3::date-700+n)::timestamp at time zone 'Asia/Kolkata' from generate_series(1,600) n",
+    [g, historyMember, day],
+  );
+  const compact = await compactRead(),
+    complete = await read();
+  assert(compact.payments.length <= 5);
+  assert.equal(
+    compact.dashboard.paid[historyPeriod],
+    1000000,
+    "Ancient receipts still settle lifetime dues",
+  );
+  assert(compact.attendance.length <= complete.members.length * 2);
+  assert.equal(compact.reminders.length, 0);
+  assert(compact.dashboard.paymentDays.length <= 63);
+  assert(compact.dashboard.visitDays.length <= 63);
+  assert(compact.dashboard.hours.length <= 24);
+  assert(
+    JSON.stringify(compact).length - JSON.stringify(beforeCompact).length <
+      1024,
+    "1600 old history records must not cause linear bootstrap growth",
+  );
+  assert(
+    JSON.stringify(complete).length - JSON.stringify(beforeFull).length >
+      100000,
+  );
+  const india = (at) =>
+    new Date(Date.parse(at) + 19800000).toISOString().slice(0, 10);
+  for (const membership of complete.memberships)
+    assert.equal(
+      compact.dashboard.paid[membership.id] ?? 0,
+      complete.payments
+        .filter((p) => !p.voided && p.membershipId === membership.id)
+        .reduce((sum, p) => sum + p.amount, 0),
+    );
+  for (const row of compact.dashboard.paymentDays) {
+    const payments = complete.payments.filter(
+      (p) => !p.voided && india(p.at) === row.day,
+    );
+    assert.equal(
+      row.amount,
+      payments.reduce((sum, p) => sum + p.amount, 0),
+    );
+    assert.equal(row.count, payments.length);
+  }
+  const visitIds = new Set();
+  let visitCursor = null;
+  do {
+    const page = (
+      await db.query("select get_attendance_page(100,$1,$2) as page", [
+        visitCursor?.at ?? null,
+        visitCursor?.id ?? null,
+      ])
+    ).rows[0].page;
+    assert(page.rows.length <= 100);
+    for (const row of page.rows) {
+      assert(!visitIds.has(row.id));
+      visitIds.add(row.id);
+    }
+    visitCursor = page.nextCursor;
+    if (!page.hasMore) break;
+  } while (visitCursor);
+  assert.equal(
+    visitIds.size,
+    complete.attendance.length,
+    "Every historical visit is reachable through bounded pages",
+  );
+  const matched = (
+    await db.query(
+      "select get_attendance_page(p_query=>'Historical member') as page",
+    )
+  ).rows[0].page;
+  assert(matched.rows.every((row) => row.memberId === historyMember));
+  const inside = (
+    await db.query("select get_attendance_page(p_inside=>true) as page")
+  ).rows[0].page;
+  assert(inside.rows.every((row) => !row.outAt && row.day === day));
+  await assert.rejects(
+    () => db.query("select get_attendance_page(101)"),
+    /Page size/,
+  );
+  await db.exec("rollback");
+  await db.exec("begin");
+  for (const row of compact.dashboard.visitDays)
+    assert.equal(
+      row.count,
+      complete.attendance.filter((a) => a.day === row.day).length,
+    );
+  await db.exec("rollback");
+  await db.query("select set_config('test.user',$1,false)", [outsider]);
+  await assert.rejects(compactRead, /access/);
+  await assert.rejects(
+    () => db.query("select get_attendance_page()"),
+    /access/,
+  );
+  await db.query("select set_config('test.user',$1,false)", [staff]);
+  assert.equal((await compactRead()).staff.length, 0);
+  await db.query("select set_config('test.user',$1,false)", [owner]);
   const privileges = await db.query(
     "select has_table_privilege('authenticated','public.payments','INSERT') as allowed",
   );

@@ -1,3 +1,6 @@
+import { ServerHistory } from "./shared/ServerHistory";
+import { supportsHistory } from "./data/history";
+import type { AuditEntry } from "./domain";
 import { useState, type FormEvent } from "react";
 import {
   UserPlus,
@@ -93,77 +96,82 @@ export function StaffManager({
         memberships and attendance. Create the person's account in Supabase
         Authentication first, then add their email here.
       </p>
-      <div className="record-scroll" role="region" aria-label="Staff accounts" tabIndex={0}>
-{staff.map((s) => (
-        <div className="list-item" key={s.id}>
-          <span className="list-icon">
-            <ShieldCheck size={18} />
-          </span>
-          <div>
-            <strong>{s.email}</strong>
-            <small>
-              {roleLabel[s.role] || s.role}
-              {s.self && " · You"}
-              {!s.enabled && " · Disabled"}
-            </small>
-          </div>
-          <select
-            aria-label={`Role for ${s.email}`}
-            value={s.role}
-            disabled={busy || s.self}
-            onChange={(e) =>
-              mutate(
-                {
-                  type: "staffUpdate",
-                  payload: {
-                    id: s.id,
-                    role: e.target.value,
-                    enabled: s.enabled,
-                  },
-                },
-                "Staff role updated",
-              )
-            }
-          >
-            <option value="owner">Admin</option>
-            <option value="reception">Staff</option>
-          </select>
-          <button
-            className="small-button"
-            disabled={busy || s.self}
-            onClick={() =>
-              mutate(
-                {
-                  type: "staffUpdate",
-                  payload: { id: s.id, role: s.role, enabled: !s.enabled },
-                },
-                s.enabled ? "Staff disabled" : "Staff enabled",
-              )
-            }
-          >
-            {s.enabled ? "Disable" : "Enable"}
-          </button>
-          <button
-            className="small-button danger-text"
-            disabled={busy || s.self}
-            onClick={() => {
-              if (
-                confirm(
-                  `Remove access for ${s.email}? Their account stays in Authentication.`,
-                )
-              )
+      <div
+        className="record-scroll"
+        role="region"
+        aria-label="Staff accounts"
+        tabIndex={0}
+      >
+        {staff.map((s) => (
+          <div className="list-item" key={s.id}>
+            <span className="list-icon">
+              <ShieldCheck size={18} />
+            </span>
+            <div>
+              <strong>{s.email}</strong>
+              <small>
+                {roleLabel[s.role] || s.role}
+                {s.self && " · You"}
+                {!s.enabled && " · Disabled"}
+              </small>
+            </div>
+            <select
+              aria-label={`Role for ${s.email}`}
+              value={s.role}
+              disabled={busy || s.self}
+              onChange={(e) =>
                 mutate(
-                  { type: "staffRemove", payload: { id: s.id } },
-                  "Staff removed",
-                );
-              else flash("No changes made");
-            }}
-          >
-            Remove
-          </button>
-        </div>
-      ))}
-</div>
+                  {
+                    type: "staffUpdate",
+                    payload: {
+                      id: s.id,
+                      role: e.target.value === "owner" ? "owner" : "reception",
+                      enabled: s.enabled,
+                    },
+                  },
+                  "Staff role updated",
+                )
+              }
+            >
+              <option value="owner">Admin</option>
+              <option value="reception">Staff</option>
+            </select>
+            <button
+              className="small-button"
+              disabled={busy || s.self}
+              onClick={() =>
+                mutate(
+                  {
+                    type: "staffUpdate",
+                    payload: { id: s.id, role: s.role, enabled: !s.enabled },
+                  },
+                  s.enabled ? "Staff disabled" : "Staff enabled",
+                )
+              }
+            >
+              {s.enabled ? "Disable" : "Enable"}
+            </button>
+            <button
+              className="small-button danger-text"
+              disabled={busy || s.self}
+              onClick={() => {
+                if (
+                  confirm(
+                    `Remove access for ${s.email}? Their account stays in Authentication.`,
+                  )
+                )
+                  mutate(
+                    { type: "staffRemove", payload: { id: s.id } },
+                    "Staff removed",
+                  );
+                else flash("No changes made");
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </div>
       <form className="inline-form staff-add" onSubmit={add}>
         <input
           type="email"
@@ -196,37 +204,59 @@ export function AuditLog({ data }: { data: Data }) {
         <h2>
           <History size={18} /> Activity audit
         </h2>
-        <span className="section-caption">Latest {audit.length} actions</span>
+        <span className="section-caption">
+          {supportsHistory(data)
+            ? "Newest first"
+            : `Latest ${audit.length} actions`}
+        </span>
       </div>
       <p className="helper">
         Every saved change is recorded with the staff account that made it.
         Admins can review this trail; it cannot be edited or deleted here.
       </p>
-      {audit.length === 0 && (
-        <div className="empty">
-          <History size={24} />
-          <p>No recorded activity yet.</p>
-        </div>
+
+      {supportsHistory(data) ? (
+        <ServerHistory<AuditEntry>
+          label="audit records"
+          revision={data.audit}
+          query={{ kind: "audit" }}
+          render={(rows) => <AuditRows audit={rows} />}
+        />
+      ) : (
+        <AuditRows audit={audit} />
       )}
-      <div className="record-scroll" role="region" aria-label="Activity audit records" tabIndex={0}>
-{audit.map((a) => (
-        <details className="audit-row" key={a.id}>
-          <summary>
-            <span className="list-icon">
-              <History size={16} />
-            </span>
-            <strong>{actionLabel(a.action)}</strong>
-            <span className="audit-meta">
-              {a.actor || "Unknown"} · {stamp(a.at)}
-            </span>
-            <ChevronRight size={16} />
-          </summary>
-          <pre className="audit-payload">
-            {JSON.stringify(a.payload, null, 2)}
-          </pre>
-        </details>
-      ))}
-</div>
     </section>
+  );
+}
+
+function AuditRows({ audit }: { audit: AuditEntry[] }) {
+  return (
+    <>
+      <div
+        className="record-scroll"
+        role="region"
+        aria-label="Activity audit records"
+        tabIndex={0}
+      >
+        {audit.map((a) => (
+          <details className="audit-row" key={a.id}>
+            <summary>
+              <span className="list-icon">
+                <History size={16} />
+              </span>
+              <strong>{actionLabel(a.action)}</strong>
+              <span className="audit-meta">
+                {a.actor || "Unknown"} · {stamp(a.at)}
+              </span>
+              <ChevronRight size={16} />
+            </summary>
+            <pre className="audit-payload">
+              {JSON.stringify(a.payload, null, 2)}
+            </pre>
+          </details>
+        ))}
+      </div>
+      {!audit.length && <p className="helper">No recorded activity yet.</p>}
+    </>
   );
 }

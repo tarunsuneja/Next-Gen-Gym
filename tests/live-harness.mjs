@@ -27,6 +27,13 @@ export async function connect(email = OWNER_EMAIL, password = OWNER_PASSWORD) {
     throw Error(`Sign-in failed (${res.status}): ${await res.text()}`);
   const { access_token } = await res.json();
   const rpc = async (name, body = {}) => {
+    if (
+      name === "gym_action" &&
+      process.env.GYMDESK_ALLOW_LIVE_WRITES !== "disposable"
+    )
+      throw Error(
+        "Live writes are blocked. Use GYMDESK_ALLOW_LIVE_WRITES=disposable only with a disposable test database.",
+      );
     const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
       method: "POST",
       headers: {
@@ -67,9 +74,7 @@ export async function signIn(
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page
-    .getByRole("heading", { name: "Dashboard" })
-    .waitFor();
+  await page.getByRole("heading", { name: "Dashboard" }).waitFor();
 }
 
 export function unique(tag) {

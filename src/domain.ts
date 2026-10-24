@@ -1,3 +1,11 @@
+import {
+  indiaDayFormatter,
+  displayDateFormatter,
+  formatMoney,
+  indiaDay,
+} from "./shared/formatters";
+import { normalizePhone } from "./shared/phone";
+export { normalizePhone } from "./shared/phone";
 export type Member = {
   id: string;
   name: string;
@@ -229,6 +237,21 @@ export const WA_VARIABLES = [
   "gym_address",
 ] as const;
 export type Data = {
+  /** Present only on the dashboard read model; raw histories are incomplete. */
+  dashboard?: {
+    day: string;
+    paid: Record<string, number>;
+    paymentDays: { day: string; amount: number; count: number }[];
+    visitDays: { day: string; count: number }[];
+    hours: { hour: number; amount: number }[];
+  };
+  capabilities?: {
+    attendancePages?: boolean;
+    paymentExports?: boolean;
+    sections?: boolean;
+    historyPages?: boolean;
+    photoStorage?: boolean;
+  };
   requests?: Record<string, { type: string; payload: string }>;
   members: Member[];
   plans: Plan[];
@@ -241,13 +264,7 @@ export type Data = {
   audit?: AuditEntry[];
   gym: { name: string; phone: string; address: string };
 };
-export const today = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+export const today = () => indiaDayFormatter.format(new Date());
 // randomUUID is restricted to secure contexts; local Wi-Fi HTTP previews are not.
 export function id() {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -259,20 +276,13 @@ export function id() {
   );
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-export const money = (paise: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    currencyDisplay: "narrowSymbol",
-    maximumFractionDigits: paise % 100 ? 2 : 0,
-  }).format(paise / 100);
-export const date = (s: string) =>
-  new Date(s.length === 10 ? s + "T12:00:00" : s).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Asia/Kolkata",
-  });
+export const money = formatMoney;
+export const date = (s: string) => {
+  const value = new Date(s.length === 10 ? s + "T12:00:00" : s);
+  return Number.isNaN(value.getTime())
+    ? "Invalid Date"
+    : displayDateFormatter.format(value);
+};
 export function shiftDay(s: string, n: number) {
   const d = new Date(s + "T12:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
@@ -293,9 +303,11 @@ export const outstanding = (d: Data, m: Membership) =>
   Math.max(
     0,
     m.amount -
-      d.payments
-        .filter((p) => p.membershipId === m.id && !p.voided)
-        .reduce((a, p) => a + p.amount, 0),
+      (d.dashboard
+        ? (d.dashboard.paid[m.id] ?? 0)
+        : d.payments
+            .filter((p) => p.membershipId === m.id && !p.voided)
+            .reduce((a, p) => a + p.amount, 0)),
   );
 export const balance = (d: Data, memberId: string) =>
   d.memberships
@@ -459,14 +471,6 @@ export function validatePayment(d: Data, membershipId: string, amount: number) {
   if (amount !== outstanding(d, m))
     throw Error("Payment must equal the full pending balance.");
 }
-export function normalizePhone(value: string) {
-  const trimmed = value.trim();
-  if (!/^[+\d\s()-]+$/.test(trimmed)) return "";
-  const digits = trimmed.replace(/\D/g, "");
-  return digits.length === 12 && digits.startsWith("91")
-    ? digits.slice(2)
-    : digits;
-}
 export function memberErrors(
   d: Data,
   p: Record<string, unknown>,
@@ -542,13 +546,7 @@ export const overdue = (d: Data, memberId: string, day = today()) =>
   d.memberships
     .filter((s) => s.memberId === memberId && !!s.dueDate && s.dueDate < day)
     .reduce((sum, s) => sum + outstanding(d, s), 0);
-export const localDay = (timestamp: string) =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(timestamp));
+export const localDay = indiaDay;
 export function freezeMembership(
   d: Data,
   membershipId: string,

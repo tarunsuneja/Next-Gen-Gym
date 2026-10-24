@@ -1,21 +1,33 @@
-import { createClient } from "@supabase/supabase-js";
+import { prepareMemberPhoto } from "./data/photos";
+import { affectedSections, supportsScopedReads } from "./data/invalidation";
+import {
+  parseWorkspace,
+  mergeWorkspaceSections,
+} from "./data/workspaceContract";
+import { commitAndRefresh } from "./data/commandResult";
+import type { Action } from "./data/commands";
+export type { Action } from "./data/commands";
 import { type Data, id } from "./domain";
-const url = import.meta.env.VITE_SUPABASE_URL;
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-export const supabase =
-  url && key
-    ? createClient(url, key, {
-        auth: {
-          flowType: "pkce",
-          detectSessionInUrl: true,
-          persistSession: true,
-          autoRefreshToken: true,
-        },
-      })
-    : null;
+import { supabase } from "./data/client";
+export { supabase } from "./data/client";
+
+const cache = new Map<string, { data: Data; ts: number }>();
+const inflight = new Map<string, Promise<Data>>();
+const CACHE_TTL = 10000;
+
+function getCacheKey(full: boolean) {
+  return full ? "full" : "dashboard";
+}
+
+export function invalidateCache() {
+  cache.clear();
+  inflight.clear();
+}
+
 export async function sendWhatsApp(payload: {
   memberId: string;
   templateName: string;
+  requestId?: string;
 }) {
   if (!supabase) throw Error("Connect Supabase to send WhatsApp messages.");
   const {
@@ -30,29 +42,63 @@ export async function sendWhatsApp(payload: {
         : {}),
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(60000),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Error(body?.error || "WhatsApp send failed.");
+  if (!res.ok || body?.error)
+    throw Error(body?.error || "WhatsApp send failed.");
   return body as { ok?: boolean; status?: string; error?: string };
 }
-export async function liveLoad(): Promise<Data> {
-  const { data, error } = await supabase!.rpc("get_gym_data");
+export async function liveLoad(
+  signal?: AbortSignal,
+  full = true,
+): Promise<Data> {
+  if (!supabase) throw Error("Supabase is not configured.");
+  if (!full) {
+    const query = supabase.rpc("get_gym_dashboard");
+    const result = await (signal ? query.abortSignal(signal) : query);
+    if (!result.error) return parseWorkspace(result.data);
+    if (result.error.code !== "PGRST202" && result.error.code !== "42883")
+      throw result.error;
+  }
+  const query = supabase.rpc("get_gym_data");
+  const { data, error } = await (signal ? query.abortSignal(signal) : query);
   if (error) throw error;
-  return data;
+  return parseWorkspace(data);
 }
-export type Action = {
-  type: string;
-  payload: Record<string, unknown>;
-  requestId?: string;
-};
-export async function liveAction(a: Action) {
-  const { error } = await supabase!.rpc("gym_action", {
-    action_type: a.type,
-    payload: a.payload,
-    request_id: a.requestId || id(),
+export async function liveRefresh(
+  previous: Data,
+  sections: string[],
+): Promise<Data> {
+  if (previous.dashboard || !supportsScopedReads(previous)) return liveLoad();
+  const { data, error } = await supabase!.rpc("get_gym_sections", {
+    p_sections: sections,
   });
   if (error) throw error;
-  return liveLoad();
+  const merged = mergeWorkspaceSections(previous, data, sections);
+  if (merged.dashboard && !previous.dashboard) {
+    cache.set("full", { data: merged, ts: Date.now() });
+  }
+  return merged;
+}
+export async function liveAction(a: Action, previous?: Data) {
+  invalidateCache();
+  const requestId = a.requestId || id();
+  const command = await prepareMemberPhoto(a, previous);
+  return commitAndRefresh(
+    requestId,
+    async () => {
+      if (!supabase) throw Error("Supabase is not configured.");
+      const { error } = await supabase.rpc("gym_action", {
+        action_type: command.type,
+        payload: command.payload,
+        request_id: requestId,
+      });
+      if (error) throw error;
+    },
+    () =>
+      previous ? liveRefresh(previous, affectedSections(action)) : liveLoad(),
+  );
 }
 export async function logExport(kind: string) {
   if (!supabase) return;

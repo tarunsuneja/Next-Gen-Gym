@@ -1,3 +1,4 @@
+import { dispatchMessage } from "./dispatch";
 import { json, requireEnv, rpc, renderBody, sendMeta, type Env } from "./lib";
 
 type Ctx = { request: Request; env: Env };
@@ -30,51 +31,65 @@ export const onRequestPost = async ({ request, env }: Ctx) => {
     if (secret !== env.CRON_SECRET)
       return json({ error: "Unauthorized." }, 401);
     const limit = 200;
+    const health = await rpc<{ recovered: number; unknown: number }>(
+      env,
+      "wa_dispatch_health",
+      {},
+    );
+    if (health.unknown > 0)
+      console.warn(
+        JSON.stringify({
+          event: "whatsapp_reconciliation_required",
+          ...health,
+        }),
+      );
     const due = await rpc<DueMessage[]>(env, "wa_due_messages", {
       p_limit: limit,
     });
     let sent = 0,
-      failed = 0;
-    for (const item of due || []) {
-      const rendered = renderBody(item.body, item.vars || {});
-      try {
-        const result = await sendMeta(env, {
-          phoneNumberId: item.phone_number_id,
-          to: item.phone,
-          templateName: item.template_name,
-          language: item.language,
-          variables: item.variables || [],
-          vars: item.vars || {},
-          body: rendered,
-        });
-        await rpc(env, "wa_record", {
-          p_gym: item.gym_id,
-          p_member: item.member_id,
-          p_direction: "out",
-          p_template: item.template_name,
-          p_wa_id: result.id,
-          p_phone: item.phone,
-          p_body: rendered,
-          p_status: "sent",
-          p_error: "",
-        });
-        sent++;
-      } catch (error) {
-        await rpc(env, "wa_record", {
-          p_gym: item.gym_id,
-          p_member: item.member_id,
-          p_direction: "out",
-          p_template: item.template_name,
-          p_wa_id: "",
-          p_phone: item.phone,
-          p_body: rendered,
-          p_status: "failed",
-          p_error: (error as Error).message,
-        });
-        failed++;
-      }
+      failed = 0,
+      unknown = 0,
+      skipped = 0;
+    const started = Date.now();
+    let processed = 0;
+    const day = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    for (const item of (due || []).slice(0, limit)) {
+      // Unstarted jobs remain eligible for the next invocation. Never interrupt an active send.
+      if (Date.now() - started >= 45000) break;
+      const result = await dispatchMessage(env, {
+        key: `scheduled:${day}:${item.gym_id}:${item.member_id}:${item.template_name}`,
+        gymId: item.gym_id,
+        memberId: item.member_id,
+        phoneNumberId: item.phone_number_id,
+        to: item.phone,
+        templateName: item.template_name,
+        language: item.language,
+        variables: item.variables || [],
+        vars: item.vars || {},
+        body: renderBody(item.body, item.vars || {}),
+      });
+      if (result.status === "sent") sent++;
+      else if (result.status === "failed") failed++;
+      else if (result.status === "unknown") unknown++;
+      else skipped++;
+      processed++;
     }
-    return json({ ok: true, due: (due || []).length, sent, failed });
+    return json({
+      ok: true,
+      due: Math.min((due || []).length, limit),
+      sent,
+      failed,
+      unknown,
+      skipped,
+      processed,
+      deferred: Math.min((due || []).length, limit) - processed,
+      reconciliation: health,
+    });
   } catch (error) {
     return json({ error: (error as Error).message }, 500);
   }

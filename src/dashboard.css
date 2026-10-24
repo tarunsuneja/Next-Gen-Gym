@@ -1,0 +1,259 @@
+/* Keep dashboard rows compact when message actions are available. */
+.dashboard-board .pending-whatsapp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  min-height: 84px;
+}
+.dashboard-board .pending-whatsapp-row:last-child {
+  border-bottom: 0;
+}
+.dashboard-board .pending-whatsapp-row > .list-item-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.dashboard-board .pending-whatsapp-row .list-item-button > div {
+  flex: 1;
+  min-width: 0;
+}
+.dashboard-board .pending-whatsapp-row .list-item-button > div strong {
+  overflow-wrap: anywhere;
+}
+.dashboard-board .pending-whatsapp-row .list-item-button > strong {
+  white-space: nowrap;
+  margin-left: auto;
+}
+.dashboard-board .pending-whatsapp-action {
+  padding: 0;
+}
+.dashboard-board .pending-whatsapp-action a {
+  white-space: nowrap;
+  padding: 8px 10px;
+  color: var(--brand);
+}
+.dashboard-board .distribution-body {
+  gap: 14px;
+}
+.dashboard-board .distribution-donut {
+  width: 150px;
+  flex: 0 0 150px;
+}
+.dashboard-board .distribution-legend {
+  max-height: 280px;
+}
+.dashboard-board .distribution-legend button {
+  padding-block: 9px;
+}
+@media (min-width: 1101px) {
+  .dashboard-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-board > .collection-panel,
+  .dashboard-board > .plan-distribution {
+    align-self: stretch;
+  }
+  .dashboard-board .pending-whatsapp-row {
+    min-height: 84px;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard-board .pending-whatsapp-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 12px 16px;
+  }
+  .dashboard-board .pending-whatsapp-action {
+    padding-left: 48px;
+  }
+  .dashboard-board .pending-whatsapp-action a {
+    min-height: 44px;
+  }
+}
+.chart-value-mobile {
+  display: none;
+}
+@media (max-width: 600px) {
+  .dashboard-board .collection-panel {
+    min-height: 0;
+  }
+  .dashboard-board .bar-chart {
+    height: 190px;
+    padding: 16px 12px 20px;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .dashboard-board .bar-value {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .chart-value-full {
+    display: none;
+  }
+  .chart-value-mobile {
+    display: inline;
+  }
+  .dashboard-board .chart-summary {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+  .dashboard-board .dashboard-reminder-tip {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 16px;
+  }
+  .dashboard-board .dashboard-reminder-tip p {
+    width: 100%;
+  }
+  .dashboard-board .dashboard-reminder-tip button {
+    grid-column: 2;
+    margin: 0;
+    justify-self: start;
+  }
+  .dashboard-board .pending-whatsapp-row {
+    padding-block: 10px;
+    gap: 2px;
+  }
+  .dashboard-board .pending-whatsapp-action a {
+    min-height: 44px;
+    padding-block: 8px;
+  }
+  .dashboard-board .distribution-donut span {
+    max-width: 100px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .dashboard-board .attention-results {
+    scroll-padding-block: 12px;
+  }
+  .dashboard-board .attention-actions {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+}
+/* Collection amounts share a continuous scale and explicit dates. */
+.collections-chart {
+  padding: 20px 20px 12px;
+}
+.collections-plot {
+  display: flex;
+  gap: 8px;
+}
+.collections-axis {
+  width: 50px;
+  flex: 0 0 50px;
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+.collections-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 6px 4px 10px;
+  scrollbar-width: thin;
+}
+.collections-bars {
+  position: relative;
+  display: flex;
+  gap: 10px;
+}
+.collections-grid {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.collections-grid i {
+  display: block;
+  border-top: 1px solid var(--line);
+}
+.collections-column {
+  flex: 1;
+  min-width: 0;
+  z-index: 1;
+  text-align: center;
+}
+.collections-track {
+  height: 150px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.collections-bar {
+  display: block;
+  width: 100%;
+  max-width: 38px;
+  background: #d85b70;
+  border-radius: 4px 4px 0 0;
+}
+.collections-bar.current {
+  background: var(--brand);
+}
+.collections-track:hover,
+.collections-track.selected {
+  background: var(--brand-soft);
+}
+.collections-track:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.collections-date {
+  display: block;
+  margin-top: 8px;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+.collections-detail {
+  min-height: 36px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.collections-detail strong {
+  color: var(--ink);
+}
+@media (max-width: 600px) {
+  .collections-chart {
+    padding: 14px 12px 10px;
+  }
+  .collections-axis {
+    width: 44px;
+    flex-basis: 44px;
+  }
+  .collections-bars {
+    gap: 4px;
+  }
+  .collections-date {
+    font-size: 12px;
+  }
+}

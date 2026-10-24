@@ -1,0 +1,11 @@
+{
+  "initialJsGzip": 185000,
+  "initialCssGzip": 23000,
+  "totalJsGzip": 230000,
+  "webVitalsTargets": {
+    "percentile": 75,
+    "lcpMs": 2500,
+    "inpMs": 200,
+    "cls": 0.1
+  }
+}
