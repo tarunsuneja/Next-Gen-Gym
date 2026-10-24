@@ -788,13 +788,14 @@ export default function App() {
             <tbody>
               {list.map((m) => {
                 const s =
+                    workspaceIndex!.latest(m.id) ||
                     d.memberships.find(
                       (x) =>
                         x.memberId === m.id &&
                         !x.cancelled &&
                         x.start <= t &&
                         x.end >= t,
-                    ) || workspaceIndex!.latest(m.id),
+                    ),
                   b = workspaceIndex!.balance(m.id),
                   checked = checkins.find((a) => a.memberId === m.id);
                 return (
