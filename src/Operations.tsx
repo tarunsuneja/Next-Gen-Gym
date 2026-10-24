@@ -1,3 +1,5 @@
+import { WhatsAppLink, dueMessage } from "./WhatsAppActions";
+import { MemberAvatar } from "./MemberAvatar";
 import { useState } from "react";
 import {
   Search,
@@ -35,7 +37,7 @@ export function MemberFinder({
 }: {
   data: Data;
   open: (m: Member) => void;
-  actions?: { label: string; run: () => void }[];
+  actions?: { label: string; keywords?: string[]; run: () => void }[];
   receipt?: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
@@ -67,7 +69,9 @@ export function MemberFinder({
             .filter(
               (a) =>
                 !q.trim() ||
-                a.label.toLowerCase().includes(q.trim().toLowerCase()),
+                [a.label, ...(a.keywords || [])].some((label) =>
+                  label.toLowerCase().includes(q.trim().toLowerCase()),
+                ),
             )
             .map((a) => (
               <button key={a.label} onClick={a.run}>
@@ -86,6 +90,7 @@ export function MemberFinder({
                 open(m);
               }}
             >
+              <MemberAvatar name={m.name} photo={m.photo}/>
               <span>
                 <strong>{m.name}</strong>
                 <small>
@@ -109,6 +114,7 @@ export function MemberFinder({
               .slice(0, 4)
               .map((p) => (
                 <button key={p.id} onClick={() => receipt(p.id)}>
+                  <MemberAvatar name={p.memberName || data.members.find(m=>m.id===p.memberId)?.name || "Former member"} photo={data.members.find(m=>m.id===p.memberId)?.photo}/>
                   <span>
                     <strong>{p.receipt}</strong>
                     <small>
@@ -125,7 +131,9 @@ export function MemberFinder({
           {q.trim() &&
             !matches.length &&
             !actions.some((a) =>
-              a.label.toLowerCase().includes(q.trim().toLowerCase()),
+              [a.label, ...(a.keywords || [])].some((label) =>
+                label.toLowerCase().includes(q.trim().toLowerCase()),
+              ),
             ) &&
             !data.payments.some((p) =>
               p.receipt.toLowerCase().includes(q.trim().toLowerCase()),
@@ -146,23 +154,23 @@ export function AttentionQueue({
   open,
   pay,
   renew,
-  contact,
+  viewAll,
 }: {
   data: Data;
   open: (m: Member) => void;
   pay: (m: Member) => void;
   renew: (m: Member) => void;
-  contact: (m: Member) => void;
+  viewAll: (category: string, ids: string[]) => void;
 }) {
   const [tab, setTab] = useState("Payments");
   const day = today();
-  const rows = data.members
+  const categories = ["Payments", "Renewals", "Absent 14+ days"];
+  const rowsFor = (category: string) => data.members
     .filter((m) => !m.archived)
     .filter((m) => {
-      const s = latest(data, m.id),
-        log = data.reminders.filter((x) => x.memberId === m.id).at(-1);
-      if (tab === "Payments") return balance(data, m.id) > 0;
-      if (tab === "Renewals")
+      const s = latest(data, m.id);
+      if (category === "Payments") return balance(data, m.id) > 0;
+      if (category === "Renewals")
         return (
           !!s &&
           s.end <= shiftDay(day, 7) &&
@@ -170,7 +178,6 @@ export function AttentionQueue({
             (x) => x.memberId === m.id && !x.cancelled && x.start > day,
           )
         );
-      if (tab === "Follow-ups") return !!log?.nextDate && log.nextDate <= day;
       const last = data.attendance
         .filter((a) => a.memberId === m.id)
         .at(-1)?.day;
@@ -182,57 +189,58 @@ export function AttentionQueue({
     })
     .sort(
       (a, b) =>
-        overdue(data, b.id) - overdue(data, a.id) ||
+        (category === "Renewals" ? (latest(data, a.id)?.end || "").localeCompare(latest(data, b.id)?.end || "") : overdue(data, b.id) - overdue(data, a.id)) ||
         balance(data, b.id) - balance(data, a.id),
     );
+  const rows = rowsFor(tab);
   return (
     <section className="panel attention-panel">
       <div className="panel-header">
-        <div>
-          <h2>Needs attention</h2>
-          <p>Resolve the next task without hunting through records.</p>
-        </div>
-        <span className="badge">{rows.length} members</span>
+        <h2>Needs attention</h2>
+        <button
+          className="text-button"
+          disabled={!rows.length}
+          onClick={() => viewAll(tab, rows.map((m) => m.id))}
+          aria-label="View all members needing attention"
+        >
+          View all <ArrowUpRight size={14} />
+        </button>
       </div>
       <div
         className="attention-tabs"
         role="group"
         aria-label="Attention category"
       >
-        {["Payments", "Renewals", "Follow-ups", "Absent 14+ days"].map((x) => (
+        {categories.map((x) => (
           <button
             className={tab === x ? "selected" : ""}
             aria-pressed={tab === x}
-            onClick={() => setTab(x)}
+            onClick={() => { setTab(x); document.getElementById("attention-results")?.scrollTo(0, 0); }}
             key={x}
           >
-            {x}
+            {x} <span className="attention-tab-count">({rowsFor(x).length})</span>
           </button>
         ))}
       </div>
-      <div>
-        {rows.slice(0, 6).map((m) => {
-          const s = latest(data, m.id),
-            logs = data.reminders.filter((x) => x.memberId === m.id),
-            log = logs.at(-1);
+      <div id="attention-results" className="attention-results" role="region" aria-label={`${tab} members needing attention`} tabIndex={0}>
+        {rows.map((m) => {
+          const s = latest(data, m.id);
           const detail =
             tab === "Payments"
               ? `${money(balance(data, m.id))} pending${overdue(data, m.id) > 0 ? ` · ${money(overdue(data, m.id))} overdue` : ""}`
               : tab === "Renewals"
                 ? `Expiry ${date(s!.end)}`
-                : tab === "Follow-ups"
-                  ? `Follow up ${date(log!.nextDate!)} · ${log?.note || log?.kind}`
                   : `Last visit: ${data.attendance.filter((x) => x.memberId === m.id).at(-1)?.day ? date(data.attendance.filter((x) => x.memberId === m.id).at(-1)!.day) : "No attendance recorded"}`;
           return (
             <div className="attention-row" key={m.id}>
-              <button className="attention-member" onClick={() => open(m)}>
+              <button className="attention-member member-identity" onClick={() => open(m)}>
+                <MemberAvatar name={m.name} photo={m.photo}/><span className="member-identity-copy">
                 <strong>{m.name}</strong>
                 <small>{detail}</small>
-                <small>
-                  {log ? `Last contact ${date(log.at)}` : "No contact logged"}
-                </small>
+                </span>
               </button>
               <div className="attention-actions">
+                {tab === "Payments" && <WhatsAppLink phone={m.phone} message={dueMessage(data,m)}>WhatsApp due</WhatsAppLink>}
                 {tab === "Payments" ? (
                   <button className="small-button" onClick={() => pay(m)}>
                     Collect
@@ -242,9 +250,7 @@ export function AttentionQueue({
                     Renew
                   </button>
                 ) : null}
-                <button className="small-button" onClick={() => contact(m)}>
-                  Follow up
-                </button>
+
               </div>
             </div>
           );
@@ -253,11 +259,6 @@ export function AttentionQueue({
           <div className="empty">
             <p>No members need attention in this category.</p>
           </div>
-        )}
-        {rows.length > 6 && (
-          <p className="helper attention-footer">
-            Showing the first 6. Use Members or Reminders to review all records.
-          </p>
         )}
       </div>
     </section>
@@ -770,6 +771,7 @@ export function Reports({
           </div>
           {lapsed.slice(0, 6).map((s) => (
             <div className="list-item" key={s.id}>
+              <MemberAvatar name={member(s.memberId)?.name || "Former member"} photo={member(s.memberId)?.photo}/>
               <div>
                 <strong>{member(s.memberId)?.name || "Former member"}</strong>
                 <small>
@@ -830,11 +832,13 @@ export function Reports({
               Export
             </button>
           </div>
-          {cur.joins.length === 0 ? (
+          <div className="record-scroll" role="region" aria-label="New member report" tabIndex={0}>
+{cur.joins.length === 0 ? (
             <p className="helper">No new members joined in this range.</p>
           ) : (
             cur.joins.map((m) => (
               <div className="list-item" key={m.id}>
+                <MemberAvatar name={m.name} photo={m.photo}/>
                 <div>
                   <strong>{m.name}</strong>
                   <small>{m.phone || "No phone on file"}</small>
@@ -843,6 +847,7 @@ export function Reports({
               </div>
             ))
           )}
+</div>
         </section>
         <section className="panel">
           <div className="panel-header">
@@ -866,13 +871,15 @@ export function Reports({
               Export
             </button>
           </div>
-          {data.members.filter((m) => balance(data, m.id) > 0).length === 0 ? (
+          <div className="record-scroll" role="region" aria-label="Outstanding balance report" tabIndex={0}>
+{data.members.filter((m) => balance(data, m.id) > 0).length === 0 ? (
             <p className="helper">No outstanding balances.</p>
           ) : (
             data.members
               .filter((m) => balance(data, m.id) > 0)
               .map((m) => (
                 <div className="list-item" key={m.id}>
+                  <MemberAvatar name={m.name} photo={m.photo}/>
                   <div>
                     <strong>{m.name}</strong>
                     <small>{money(overdue(data, m.id))} overdue</small>
@@ -881,6 +888,7 @@ export function Reports({
                 </div>
               ))
           )}
+</div>
         </section>
       </div>
       <p className="helper">

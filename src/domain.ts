@@ -1,4 +1,3 @@
-import { GYM_NAME } from "./branding";
 export type Member = {
   id: string;
   name: string;
@@ -264,6 +263,7 @@ export const money = (paise: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
+    currencyDisplay: "narrowSymbol",
     maximumFractionDigits: paise % 100 ? 2 : 0,
   }).format(paise / 100);
 export const date = (s: string) =>
@@ -319,10 +319,11 @@ export function waVariables(
   d: Data,
   memberId: string,
   runDay = today(),
+  membership?: Membership,
 ): Record<string, string> {
   const m = d.members.find((x) => x.id === memberId);
   if (!m) return {};
-  const lm = latest(d, memberId);
+  const lm = membership || latest(d, memberId);
   const totalDue = d.memberships
     .filter((s) => s.memberId === memberId && !s.cancelled)
     .reduce((a, s) => a + outstanding(d, s), 0);
@@ -335,8 +336,8 @@ export function waVariables(
     plan_name: lm?.planName ?? "",
     expiry_date: lm ? date(lm.end) : "",
     due_date: lm?.dueDate ? date(lm.dueDate) : "",
-    amount: lm ? String(Math.round(lm.amount / 100)) : "0",
-    outstanding: String(Math.round(totalDue / 100)),
+    amount: lm ? String(lm.amount / 100) : "0",
+    outstanding: String(totalDue / 100),
     days_left: lm
       ? String(
           Math.max(
@@ -349,6 +350,31 @@ export function waVariables(
 }
 export const renderTemplate = (body: string, vars: Record<string, string>) =>
   body.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => vars[key] ?? "");
+export function reminderMembership(
+  d: Data,
+  memberId: string,
+  templateName: string,
+  runDay = today(),
+) {
+  return (
+    d.memberships
+      .filter(
+        (s) =>
+          s.memberId === memberId &&
+          !s.cancelled &&
+          outstanding(d, s) > 0 &&
+          d.whatsapp?.rules.some(
+            (r) =>
+              r.isActive &&
+              r.audience === "has_dues" &&
+              r.templateName === templateName &&
+              s.dueDate === shiftDay(runDay, -r.offsetDays),
+          ),
+      )
+      .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""))[0] ||
+    latest(d, memberId)
+  );
+}
 export function dueReminders(
   d: Data,
   runDay = today(),
@@ -376,7 +402,16 @@ export function dueReminders(
     const target = shiftDay(runDay, -rule.offsetDays);
     for (const m of d.members) {
       if (m.archived || !m.whatsappConsent) continue;
-      const lm = latest(d, m.id);
+      const lm =
+        rule.audience === "has_dues"
+          ? d.memberships.find(
+              (s) =>
+                s.memberId === m.id &&
+                !s.cancelled &&
+                s.dueDate === target &&
+                outstanding(d, s) > 0,
+            )
+          : latest(d, m.id);
       if (!lm) continue;
       if (rule.audience === "has_dues") {
         if (lm.dueDate !== target || outstanding(d, lm) <= 0) continue;
@@ -389,13 +424,17 @@ export function dueReminders(
         wa.messages.some(
           (msg) =>
             msg.direction === "out" &&
+            msg.status !== "failed" &&
             msg.memberId === m.id &&
             msg.templateName === rule.templateName &&
             localDay(msg.at) === runDay,
         )
       )
         continue;
-      const body = renderTemplate(template.body, waVariables(d, m.id, runDay));
+      const body = renderTemplate(
+        template.body,
+        waVariables(d, m.id, runDay, lm),
+      );
       if (
         out.some(
           (x) => x.memberId === m.id && x.templateName === rule.templateName,
@@ -417,8 +456,8 @@ export function validatePayment(d: Data, membershipId: string, amount: number) {
   if (!m) throw Error("Choose a membership.");
   if (!Number.isSafeInteger(amount) || amount <= 0)
     throw Error("Enter a valid payment amount.");
-  if (amount > outstanding(d, m))
-    throw Error("Payment exceeds the pending balance.");
+  if (amount !== outstanding(d, m))
+    throw Error("Payment must equal the full pending balance.");
 }
 export function normalizePhone(value: string) {
   const trimmed = value.trim();
@@ -434,7 +473,14 @@ export function memberErrors(
   memberId?: string,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  if(p.dob && (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.dob)) || !Number.isFinite(Date.parse(String(p.dob))) || new Date(String(p.dob)).toISOString().slice(0,10)!==p.dob || String(p.dob)>today())) errors.dob="Choose a valid date of birth that is not in the future.";
+  if (
+    p.dob &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.dob)) ||
+      !Number.isFinite(Date.parse(String(p.dob))) ||
+      new Date(String(p.dob)).toISOString().slice(0, 10) !== p.dob ||
+      String(p.dob) > today())
+  )
+    errors.dob = "Choose a valid date of birth that is not in the future.";
   const name = String(p.name || "").trim(),
     phone = normalizePhone(String(p.phone || "")),
     email = String(p.email || "").trim();
@@ -548,95 +594,5 @@ export function freezeMembership(
     freezeStart: start,
     freezeEnd: end,
     freezeReason: reason.trim(),
-  };
-}
-export function seed(): Data {
-  const names = [
-    "Arjun Mehta",
-    "Priya Sharma",
-    "Rohan Kapoor",
-    "Sneha Patel",
-    "Vikram Singh",
-    "Ananya Rao",
-    "Kabir Shah",
-    "Meera Nair",
-  ];
-  const t = today();
-  const members = names.map((name, i) => ({
-    id: id(),
-    name,
-    phone: "90000000" + String(i + 10),
-    email: "",
-    gender: i % 2 ? "Female" : "Male",
-    address: i % 3 === 2 ? "" : `Flat ${i + 1}, Park Street, Bengaluru`,
-    height: i % 4 === 3 ? "" : String(155 + i * 4),
-    weight: i % 4 === 3 ? "" : String(52 + i * 5),
-    joined: shiftDay(t, -40 - i * 3),
-    archived: false,
-    notes: "",
-    whatsappConsent: i !== 7,
-  }));
-  const plans = [
-    { id: id(), name: "Monthly", months: 1, price: 150000 },
-    { id: id(), name: "Quarterly", months: 3, price: 400000 },
-    { id: id(), name: "Annual", months: 12, price: 1400000 },
-  ];
-  const memberships = members.map((m, i) => ({
-    id: id(),
-    memberId: m.id,
-    planName: i % 2 ? "Quarterly" : "Monthly",
-    start: shiftDay(t, -20),
-    end: shiftDay(t, i === 4 ? -3 : i === 1 ? 3 : i === 5 ? 6 : 20 + i * 4),
-    amount: i % 2 ? 400000 : 150000,
-    dueDate: shiftDay(t, -10),
-  }));
-  const payments = memberships.map((m, i) => ({
-    id: id(),
-    membershipId: m.id,
-    memberId: m.memberId,
-    amount: i === 2 ? 50000 : i === 5 ? 200000 : m.amount,
-    method: i % 2 ? "UPI" : "Cash",
-    reference: "",
-    at: new Date(Date.now() - i * 86400000).toISOString(),
-    receipt: "DEMO-" + String(i + 1).padStart(4, "0"),
-    voided: false,
-    voidReason: "",
-  }));
-  return {
-    members,
-    plans,
-    memberships,
-    payments,
-    attendance: members.slice(0, 3).map((m) => ({
-      id: id(),
-      memberId: m.id,
-      day: t,
-      at: new Date().toISOString(),
-      override: "",
-    })),
-    reminders: [],
-    whatsapp: {
-      config: emptyWhatsAppConfig(),
-      templates: defaultTemplates(),
-      rules: defaultRules(),
-      messages: [],
-    },
-    staff: [
-      {
-        id: id(),
-        email: "owner@demo.local",
-        role: "owner",
-        enabled: true,
-        self: true,
-      },
-      {
-        id: id(),
-        email: "reception@demo.local",
-        role: "reception",
-        enabled: true,
-      },
-    ],
-    audit: [],
-    gym: { name: GYM_NAME, phone: "", address: "" },
   };
 }

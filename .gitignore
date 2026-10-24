@@ -7,3 +7,5 @@ playwright-report/
 test-results/
 artifacts/
 .DS_Store
+vite-hidden.log
+vite-hidden.err

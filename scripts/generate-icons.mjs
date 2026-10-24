@@ -17,7 +17,9 @@ const targets = [
 ];
 
 await mkdir("public/icons", { recursive: true });
-const browser = await chromium.launch({ executablePath: process.env.GYMDESK_BROWSER_PATH || undefined });
+const browser = await chromium.launch({
+  executablePath: process.env.GYMDESK_BROWSER_PATH || undefined,
+});
 const page = await browser.newPage({ viewport: { width: 512, height: 512 } });
 for (const t of targets) {
   await page.setViewportSize({ width: t.size, height: t.size });

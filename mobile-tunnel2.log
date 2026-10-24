@@ -1,0 +1,18 @@
+Starting Cloudflare quick tunnel for port 5180...
+Tunnel ready: https://waterproof-tape-rated-magazines.trycloudflare.com
+
+
+=====================================================
+  Open on your phone: https://waterproof-tape-rated-magazines.trycloudflare.com
+  Supabase traffic is proxied via /supabase -> http://127.0.0.1:61321
+  Keep this window open. Press Ctrl+C to stop.
+=====================================================
+
+
+  [32m[1mVITE[22m v6.4.4[39m  [2mready in [0m[1m673[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5180[22m/[39m
+[2m11:13:00 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m11:13:00 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m11:13:00 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx[22m
+[2m11:13:00 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/typography.css[22m

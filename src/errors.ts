@@ -1,7 +1,16 @@
-type ErrorShape = { code?: unknown; status?: unknown };
+type ErrorShape = { code?: unknown; status?: unknown; message?: unknown };
 
 export function friendlyError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const message =
+    typeof error === "object" && error
+      ? (error as ErrorShape).message
+      : undefined;
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof message === "string"
+        ? message
+        : String(error ?? "");
   const text = raw.trim() || "Something went wrong. Please try again.";
   const lower = text.toLowerCase();
   const shape = (typeof error === "object" && error ? error : {}) as ErrorShape;

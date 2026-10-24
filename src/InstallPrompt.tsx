@@ -79,7 +79,13 @@ export function InstallPrompt() {
 
   return (
     <div className="install-prompt" role="dialog" aria-label="Install app">
-      <img className="install-logo" src="/icons/icon-192.png?v=ngf2" alt="NGF Gym" width={48} height={48} />
+      <img
+        className="install-logo"
+        src="/icons/icon-192.png?v=ngf2"
+        alt="NGF Gym"
+        width={48}
+        height={48}
+      />
       <div className="install-copy">
         <strong>Install NGF Gym</strong>
         <p>

@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { MemberAvatar } from "./MemberAvatar";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   MessageCircle,
   Plus,
@@ -44,9 +45,7 @@ const categories: TemplateCategory[] = [
   "authentication",
 ];
 const statusLabel = (s: string) =>
-  s === "simulated"
-    ? "Simulated (demo)"
-    : s.charAt(0).toUpperCase() + s.slice(1);
+  s === "simulated" ? "Simulated" : s.charAt(0).toUpperCase() + s.slice(1);
 const stamp = (s: string) =>
   new Date(s).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 export function Messaging({
@@ -56,7 +55,15 @@ export function Messaging({
   mutate,
   sendMessage,
   flash,
+  logOnly = false,
+  initialSection = "Queue",
+  onDirtyChange,
+  onSendingChange,
 }: {
+  logOnly?: boolean;
+  initialSection?: "Queue" | "Setup";
+  onDirtyChange?: (dirty: boolean) => void;
+  onSendingChange?: (sending: boolean) => void;
   data: Data;
   role: string;
   busy: boolean;
@@ -72,13 +79,21 @@ export function Messaging({
     },
     owner = role === "owner",
     [tab, setTab] = useState<"Queue" | "Templates" | "Rules" | "Log" | "Setup">(
-      "Queue",
+      logOnly ? "Log" : initialSection,
     ),
     [tpl, setTpl] = useState<Partial<WhatsAppTemplate> | null>(null),
     [rule, setRule] = useState<Partial<ReminderRule> | null>(null),
     [picked, setPicked] = useState<Record<string, boolean>>({}),
     [sending, setSending] = useState(false),
     [editorDirty, setEditorDirty] = useState(false);
+  useEffect(() => {
+    onDirtyChange?.(!!(editorDirty && (tpl || rule || tab === "Setup")));
+    return () => onDirtyChange?.(false);
+  }, [editorDirty, tpl, rule, tab, onDirtyChange]);
+  useEffect(() => {
+    onSendingChange?.(sending);
+    return () => onSendingChange?.(false);
+  }, [sending, onSendingChange]);
   const queue = useMemo(
     () =>
       dueReminders({
@@ -169,7 +184,7 @@ export function Messaging({
   async function submitConfig(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    await mutate(
+    const saved = await mutate(
       {
         type: "whatsappConfig",
         payload: {
@@ -185,37 +200,40 @@ export function Messaging({
       },
       "WhatsApp settings saved",
     );
+    if (saved) setEditorDirty(false);
   }
   return (
     <>
-      <div className="tabs" aria-label="Messaging sections">
-        {(["Queue", "Templates", "Rules", "Log", "Setup"] as const).map((x) => (
-          <button
-            key={x}
-            className={tab === x ? "active" : ""}
-            aria-pressed={tab === x}
-            disabled={busy || sending}
-            onClick={() => {
-              if (
-                tab !== x &&
-                editorDirty &&
-                (tpl || rule) &&
-                !confirm("Discard unsaved template or rule changes?")
-              )
-                return;
-              if (tab !== x) {
-                setTpl(null);
-                setRule(null);
-                setEditorDirty(false);
-              }
-              setTab(x);
-            }}
-          >
-            {x}
-            {x === "Queue" && queue.length > 0 && <b> {queue.length}</b>}
-          </button>
-        ))}
-      </div>
+      {!logOnly && (
+        <div className="tabs" aria-label="Messaging sections">
+          {(["Queue", "Templates", "Rules", "Setup"] as const).map((x) => (
+            <button
+              key={x}
+              className={tab === x ? "active" : ""}
+              aria-pressed={tab === x}
+              disabled={busy || sending}
+              onClick={() => {
+                if (
+                  tab !== x &&
+                  editorDirty &&
+                  (tpl || rule || tab === "Setup") &&
+                  !confirm("Discard unsaved reminder changes?")
+                )
+                  return;
+                if (tab !== x) {
+                  setTpl(null);
+                  setRule(null);
+                  setEditorDirty(false);
+                }
+                setTab(x);
+              }}
+            >
+              {x}
+              {x === "Queue" && queue.length > 0 && <b> {queue.length}</b>}
+            </button>
+          ))}
+        </div>
+      )}
       {tab === "Queue" && (
         <>
           <section className="panel">
@@ -234,7 +252,8 @@ export function Messaging({
                 sending to dispatch reminders.
               </p>
             )}
-            {queue.length === 0 ? (
+            <div className="record-scroll" role="region" aria-label="Automated reminder queue" tabIndex={0}>
+{queue.length === 0 ? (
               <p className="helper">
                 No reminders are due today for your active rules.
               </p>
@@ -251,7 +270,7 @@ export function Messaging({
                       }
                     />
                     <div>
-                      <strong>{memberName(q.memberId)}</strong>
+                      <span className="member-identity"><MemberAvatar name={memberName(q.memberId)} photo={data.members.find(m=>m.id===q.memberId)?.photo}/><strong>{memberName(q.memberId)}</strong></span>
                       <small>
                         {q.template.name} · {q.template.category}
                       </small>
@@ -261,6 +280,7 @@ export function Messaging({
                 );
               })
             )}
+</div>
             {queue.length > 0 && (
               <div className="panel-header">
                 <span className="helper">
@@ -398,7 +418,8 @@ export function Messaging({
               </div>
             </form>
           )}
-          {wa.templates.map((t) => (
+          <div className="record-scroll" role="region" aria-label="Message templates" tabIndex={0}>
+{wa.templates.map((t) => (
             <div className="list-item" key={t.id}>
               <span className="list-icon">
                 <MessageCircle size={18} />
@@ -440,6 +461,7 @@ export function Messaging({
               )}
             </div>
           ))}
+</div>
           {!wa.templates.length && (
             <p className="helper">
               No templates yet. Add the defaults to start.
@@ -557,7 +579,8 @@ export function Messaging({
               </div>
             </form>
           )}
-          {wa.rules.map((r) => (
+          <div className="record-scroll" role="region" aria-label="Automation rules" tabIndex={0}>
+{wa.rules.map((r) => (
             <div className="list-item" key={r.id}>
               <span className="list-icon">
                 <Clock size={18} />
@@ -596,6 +619,7 @@ export function Messaging({
               )}
             </div>
           ))}
+</div>
           {!wa.rules.length && (
             <p className="helper">No rules yet. Add defaults from Templates.</p>
           )}
@@ -607,15 +631,10 @@ export function Messaging({
             <h2>Message log</h2>
             <Badge2 ok text={`${wa.messages.length} recent`} />
           </div>
-          {wa.messages.map((m) => (
+          <div className="record-scroll" role="region" aria-label="Message delivery records" tabIndex={0}>
+{wa.messages.map((m) => (
             <div className="list-item" key={m.id}>
-              <span className="list-icon">
-                {m.direction === "in" ? (
-                  <MessageCircle size={18} />
-                ) : (
-                  <Send size={18} />
-                )}
-              </span>
+              <MemberAvatar name={memberName(m.memberId)} photo={data.members.find(x=>x.id===m.memberId)?.photo}/>
               <div>
                 <strong>
                   {memberName(m.memberId)}
@@ -630,6 +649,7 @@ export function Messaging({
               </div>
             </div>
           ))}
+</div>
           {!wa.messages.length && (
             <p className="helper">No messages sent or received yet.</p>
           )}
@@ -646,10 +666,10 @@ export function Messaging({
           </div>
           {!owner ? (
             <p className="helper">
-              Only the owner can change WhatsApp settings.
+              Only the admin can change WhatsApp settings.
             </p>
           ) : (
-            <form className="inline-form" onSubmit={submitConfig}>
+            <form className="inline-form" onSubmit={submitConfig} onChange={() => setEditorDirty(true)}>
               <div className="form-grid">
                 <label>
                   Phone number ID

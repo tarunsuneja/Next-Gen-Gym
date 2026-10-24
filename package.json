@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "mobile:tunnel": "node scripts/mobile-tunnel.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc -b && tsc -p tsconfig.functions.json",
@@ -13,7 +14,18 @@
     "test": "tsx --test tests/domain.test.ts",
     "check:server": "tsc -p tsconfig.functions.json && tsx --test tests/server.test.ts",
     "test:db": "node tests/database.mjs",
-    "test:browser": "node tests/browser.mjs && node tests/core-lifecycle.mjs && node tests/navigation-plans.mjs && node tests/operations.mjs && node tests/professional-workflows.mjs && node tests/lifecycles.mjs && node tests/dashboard.mjs && node tests/reports.mjs && node tests/ui-review.mjs"
+    "db:start": "npx supabase start",
+    "db:stop": "npx supabase stop",
+    "db:reset": "npx supabase db reset",
+    "db:status": "npx supabase status",
+    "seed:150": "node tests/seed-big.mjs",
+    "test:live": "node tests/live-e2e.mjs",
+    "test:validate": "node tests/validate-all.mjs",
+    "test:ui": "node tests/validate-ui.mjs",
+    "test:all": "npm run build && npm test && npm run check:server && npm run test:db && npm run test:live",
+    "test:dashboard-layout": "node --import tsx tests/dashboard-layout.mjs",
+    "test:workspace-layout": "node --import tsx tests/workspace-simplification.mjs",
+    "test:checkout": "node --import tsx tests/checkout-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",

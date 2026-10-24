@@ -1,9 +1,10 @@
+import { friendlyError } from "../src/errors.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chartBuckets, dashWindow, kolkataDay } from "../src/analytics.tsx";
+import { seed } from "./fixtures.ts";
 import {
   expiry,
-  seed,
   outstanding,
   validatePayment,
   today,
@@ -147,16 +148,17 @@ test("calendar expiry handles month-end and leap years", () => {
   assert.equal(expiry("2026-10-06", 1), "2026-11-05");
   assert.equal(expiry("2024-02-29", 12), "2025-02-27");
 });
-test("partial payment balances and void restoration", () => {
+test("legacy balances require full settlement and void restoration", () => {
   const d = seed(),
     m = d.memberships[2];
-  assert.equal(outstanding(d, m), 100000);
-  assert.throws(() => validatePayment(d, m.id, 100001), /exceeds/);
+  assert.equal(outstanding(d, m), 70000);
+  assert.throws(() => validatePayment(d, m.id, 70001), /full pending/);
   assert.throws(() => validatePayment(d, m.id, 0), /valid/);
   assert.throws(() => validatePayment(d, m.id, 0.5), /valid/);
-  validatePayment(d, m.id, 100000);
+  assert.throws(() => validatePayment(d, m.id, 50000), /full pending/);
+  validatePayment(d, m.id, 70000);
   d.payments[2].voided = true;
-  assert.equal(outstanding(d, m), 150000);
+  assert.equal(outstanding(d, m), 120000);
 });
 test("membership eligibility includes expiry day but excludes archive", () => {
   const d = seed(),
@@ -222,4 +224,126 @@ test("WhatsApp reminder engine renders templates, honours consent and de-duplica
   );
   d.whatsapp.config.enabled = false;
   assert.equal(dueReminders(d).length, 0);
+});
+
+test("fee reminders retain arrears after a paid renewal, preserve paise and allow failed-send retries", () => {
+  const d = seed(),
+    m = d.members[0],
+    day = today();
+  d.members = [m];
+  m.whatsappConsent = true;
+  d.payments = [];
+  const arrears = {
+    id: id(),
+    memberId: m.id,
+    planName: "Previous monthly",
+    start: shiftDay(day, -29),
+    end: day,
+    amount: 150025,
+    dueDate: shiftDay(day, -3),
+  };
+  const renewal = {
+    id: id(),
+    memberId: m.id,
+    planName: "Renewed plan",
+    start: shiftDay(day, 1),
+    end: shiftDay(day, 30),
+    amount: 200000,
+    dueDate: shiftDay(day, 1),
+  };
+  d.memberships = [arrears, renewal];
+  d.payments = [
+    {
+      id: id(),
+      membershipId: renewal.id,
+      memberId: m.id,
+      amount: 200000,
+      method: "Cash",
+      reference: "",
+      at: new Date().toISOString(),
+      receipt: "TEST",
+      voided: false,
+      voidReason: "",
+    },
+  ];
+  d.whatsapp = {
+    config: { ...emptyWhatsAppConfig(), enabled: true },
+    templates: [
+      {
+        id: id(),
+        name: "arrears",
+        category: "utility",
+        language: "en",
+        body: "{{plan_name}}: {{outstanding}} due {{due_date}}",
+        variables: ["plan_name", "outstanding", "due_date"],
+        status: "draft",
+        isActive: true,
+      },
+    ],
+    rules: [
+      {
+        id: id(),
+        name: "Arrears",
+        offsetDays: 3,
+        templateName: "arrears",
+        audience: "has_dues",
+        isActive: true,
+      },
+    ],
+    messages: [],
+  };
+  let q = dueReminders(d, day);
+  assert.equal(q.length, 1);
+  assert(q[0].body.includes("Previous monthly: 1500.25"));
+  d.whatsapp.messages.push({
+    id: id(),
+    memberId: m.id,
+    direction: "out",
+    templateName: "arrears",
+    phone: m.phone,
+    body: q[0].body,
+    status: "failed",
+    at: new Date().toISOString(),
+  });
+  assert.equal(dueReminders(d, day).length, 1);
+  d.whatsapp.messages[0].status = "sent";
+  assert.equal(dueReminders(d, day).length, 0);
+  d.whatsapp.messages = [];
+  d.payments.push({
+    ...d.payments[0],
+    id: id(),
+    membershipId: arrears.id,
+    amount: arrears.amount,
+  });
+  assert.equal(dueReminders(d, day).length, 0);
+  d.payments[d.payments.length - 1].voided = true;
+  assert.equal(dueReminders(d, day).length, 1);
+  m.archived = true;
+  assert.equal(dueReminders(d, day).length, 0);
+});
+
+test("database error objects retain readable messages and session errors remain actionable", () => {
+  assert.equal(
+    friendlyError({ code: "P0001", message: "No active gym access." }),
+    "No active gym access.",
+  );
+  assert.equal(
+    friendlyError({ code: "PGRST301", message: "JWT expired" }),
+    "Your session has expired. Please sign in again.",
+  );
+  assert.equal(
+    friendlyError({ message: "Payment exceeds the pending balance." }),
+    "Payment exceeds the pending balance.",
+  );
+});
+import { whatsappUrl, welcomeMessage, receiptMessage, dueMessage } from "../src/WhatsAppActions";
+test("WhatsApp actions encode messages and use recorded payment and balance details", () => {
+  const data=seed(), member=data.members[0], payment=data.payments.find(p=>p.memberId===member.id)!;
+  assert.equal(whatsappUrl("98765 43210", "Hello & welcome"), "https://wa.me/919876543210?text=Hello%20%26%20welcome");
+  assert.equal(whatsappUrl("+91 98765 43210", "Hi"), "https://wa.me/919876543210?text=Hi");
+  assert.equal(whatsappUrl("123", "Hi"), null);
+  assert.ok(welcomeMessage(data,member).includes(member.name));
+  assert.ok(receiptMessage(data,payment).includes(payment.receipt));
+  assert.ok(receiptMessage(data,payment).includes(payment.method));
+  assert.ok(dueMessage(data,member).includes(member.name));
 });

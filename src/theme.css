@@ -62,20 +62,6 @@ body {
   background: #131316;
   color: #aaa3ae;
 }
-.gym-switch {
-  margin-top: 26px;
-}
-.gym-switch strong {
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-.gym-icon {
-  background: #39242a;
-  color: #ffb5bf;
-}
-.gym-switch small {
-  color: #a39aa5;
-}
 .nav-label {
   color: #897d89;
 }

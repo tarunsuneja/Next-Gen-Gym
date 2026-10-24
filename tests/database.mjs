@@ -1,3 +1,4 @@
+import { checkFullPaymentPolicy } from "./full-payment-policy.mjs";
 import { PGlite } from "@electric-sql/pglite";
 import { readFile, readdir } from "node:fs/promises";
 import assert from "node:assert/strict";
@@ -7,7 +8,7 @@ try {
     `create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user',true),'')::uuid $$;`,
   );
   for (const file of (await readdir("supabase/migrations"))
-    .filter((f) => f.endsWith(".sql"))
+    .filter((f) => f.endsWith(".sql") && f !== "017_full_payment_checkout.sql")
     .sort()) {
     await db.exec(
       (await readFile("supabase/migrations/" + file, "utf8")).replace(
@@ -190,11 +191,11 @@ try {
         months: 1,
         price: 1,
       }),
-    /Owner/,
+    /Admin/,
   );
   await assert.rejects(
     () => action("void", { id: d.payments[0].id, reason: "Correction" }),
-    /Owner/,
+    /Admin/,
   );
   await assert.rejects(
     () =>
@@ -202,7 +203,7 @@ try {
         memberId: d.members[0].id,
         override: "Expired override",
       }),
-    /Owner override/,
+    /Admin override/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
   await action("void", { id: d.payments[0].id, reason: "Correction" });
@@ -254,7 +255,7 @@ try {
         end: day,
         reason: "Travel hold",
       }),
-    /Owner/,
+    /Admin/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
   await action("freeze", {
@@ -280,7 +281,7 @@ try {
   await db.query("select set_config('test.user',$1,false)", [staff]);
   await assert.rejects(
     () => action("attendance", { memberId: lifecycleMember.id }),
-    /Owner override/,
+    /Admin override/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
   await action("resume", { id: period.id, reason: "Returned early" });
@@ -370,7 +371,7 @@ try {
         body: "y",
         category: "utility",
       }),
-    /Owner permission/,
+    /Admin permission/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
   await action("whatsappSeed", {});
@@ -608,7 +609,7 @@ try {
   await assert.rejects(
     () =>
       action("staffAdd", { email: "newstaff@test.local", role: "reception" }),
-    /Owner permission/,
+    /Admin permission/,
   );
   d = await read();
   assert.equal(d.staff.length, 0);
@@ -633,11 +634,11 @@ try {
   await assert.rejects(
     () =>
       action("staffUpdate", { id: owner, role: "reception", enabled: true }),
-    /your own owner access/,
+    /your own admin access/,
   );
   await assert.rejects(
     () => action("staffUpdate", { id: owner, role: "owner", enabled: false }),
-    /your own owner access/,
+    /your own admin access/,
   );
   await assert.rejects(
     () => action("staffRemove", { id: owner }),
@@ -746,13 +747,17 @@ try {
   assert.equal(typeof d.audit[0].payload, "object");
   const checkin = d.attendance[0];
   await db.query("select set_config('test.user',$1,false)", [staff]);
-  const checkoutRequest=crypto.randomUUID();
-  await action("checkout",{id:checkin.id},checkoutRequest);
-  await action("checkout",{id:checkin.id},checkoutRequest);
-  await assert.rejects(()=>action("checkout",{id:checkin.id}),/already checked out/);
+  const checkoutRequest = crypto.randomUUID();
+  await action("checkout", { id: checkin.id }, checkoutRequest);
+  await action("checkout", { id: checkin.id }, checkoutRequest);
+  await assert.rejects(
+    () => action("checkout", { id: checkin.id }),
+    /already checked out/,
+  );
   await db.query("select set_config('test.user',$1,false)", [owner]);
-  d=await read();assert(d.attendance.find(a=>a.id===checkin.id).outAt);
-  assert(d.audit.some(a=>a.action==='checkout'));
+  d = await read();
+  assert(d.attendance.find((a) => a.id === checkin.id).outAt);
+  assert(d.audit.some((a) => a.action === "checkout"));
 
   await action("freeze", {
     id: paidMembership.id,
@@ -774,7 +779,7 @@ try {
   await assert.rejects(
     () =>
       action("attendanceRemove", { id: checkin.id, reason: "Wrong check-in" }),
-    /Owner/,
+    /Admin/,
   );
   await db.query("select set_config('test.user',$1,false)", [owner]);
   const correctionRequest = crypto.randomUUID(),
@@ -810,54 +815,246 @@ try {
         a.action === "reminder" && a.payload.previousContact?.id === contact.id,
     ),
   );
-  const editPayload = {id: paidMembership.id, planName: "Updated membership", start: paidMembership.start, end: paidMembership.end, amount: paidMembership.amount, dueDate: day, reason: "Correct membership details"};
+  const editPayload = {
+    id: paidMembership.id,
+    planName: "Updated membership",
+    start: paidMembership.start,
+    end: paidMembership.end,
+    amount: paidMembership.amount,
+    dueDate: day,
+    reason: "Correct membership details",
+  };
   await action("membershipEdit", editPayload);
   d = await read();
-  assert.equal(d.memberships.find(m => m.id === paidMembership.id).planName, "Updated membership");
-  assert(d.audit.some(a => a.action === "membershipEdit" && a.payload.previousMembership.id === paidMembership.id));
-  await assert.rejects(() => action("membershipEdit", {...editPayload, amount: 0}), /less than payments/);
-  await assert.rejects(() => action("membershipEdit", {...editPayload, end: "2000-01-01"}), /valid membership period/);
+  assert.equal(
+    d.memberships.find((m) => m.id === paidMembership.id).planName,
+    "Updated membership",
+  );
+  assert(
+    d.audit.some(
+      (a) =>
+        a.action === "membershipEdit" &&
+        a.payload.previousMembership.id === paidMembership.id,
+    ),
+  );
+  await assert.rejects(
+    () => action("membershipEdit", { ...editPayload, amount: 0 }),
+    /less than payments/,
+  );
+  await assert.rejects(
+    () => action("membershipEdit", { ...editPayload, end: "2000-01-01" }),
+    /valid membership period/,
+  );
   await db.query("select set_config('test.user',$1,false)", [staff]);
-  await assert.rejects(() => action("membershipEdit", editPayload), /Owner/);
+  await assert.rejects(() => action("membershipEdit", editPayload), /Admin/);
   await db.query("select set_config('test.user',$1,false)", [owner]);
-  const birthdayMember = d.members.find(m => m.id === paidMembership.memberId);
-  await action("member", {...birthdayMember,dob:"1995-10-15",archived:true});
-  d=await read();
-  assert.equal(d.members.find(m=>m.id===birthdayMember.id).dob,"1995-10-15");
-  assert.equal(d.members.find(m=>m.id===birthdayMember.id).leftOn,day);
-  await action("member", {...birthdayMember,dob:"1995-10-15",archived:false});
-  d=await read();assert.equal(d.members.find(m=>m.id===birthdayMember.id).leftOn,null);
-  await assert.rejects(()=>action("member",{...birthdayMember,dob:"2999-01-01"}),/future/);
-  await action("membershipEdit",{...editPayload,baseAmount:editPayload.amount+10000,discountType:"fixed",discountValue:100});
-  d=await read();assert.equal(d.memberships.find(m=>m.id===paidMembership.id).discount,10000);
-  await assert.rejects(()=>action("membershipEdit",{...editPayload,baseAmount:editPayload.amount,discountType:"percent",discountValue:101}),/100 percent/);
-  await assert.rejects(()=>action("membershipEdit",{...editPayload,baseAmount:editPayload.amount,discountType:"fixed",discountValue:100}),/discount total/);
+  const birthdayMember = d.members.find(
+    (m) => m.id === paidMembership.memberId,
+  );
+  await action("member", {
+    ...birthdayMember,
+    dob: "1995-10-15",
+    archived: true,
+  });
+  d = await read();
+  assert.equal(
+    d.members.find((m) => m.id === birthdayMember.id).dob,
+    "1995-10-15",
+  );
+  assert.equal(d.members.find((m) => m.id === birthdayMember.id).leftOn, day);
+  await action("member", {
+    ...birthdayMember,
+    dob: "1995-10-15",
+    archived: false,
+  });
+  d = await read();
+  assert.equal(d.members.find((m) => m.id === birthdayMember.id).leftOn, null);
+  await assert.rejects(
+    () => action("member", { ...birthdayMember, dob: "2999-01-01" }),
+    /future/,
+  );
+  await action("membershipEdit", {
+    ...editPayload,
+    baseAmount: editPayload.amount + 10000,
+    discountType: "fixed",
+    discountValue: 100,
+  });
+  d = await read();
+  assert.equal(
+    d.memberships.find((m) => m.id === paidMembership.id).discount,
+    10000,
+  );
+  await assert.rejects(
+    () =>
+      action("membershipEdit", {
+        ...editPayload,
+        baseAmount: editPayload.amount,
+        discountType: "percent",
+        discountValue: 101,
+      }),
+    /100 percent/,
+  );
+  await assert.rejects(
+    () =>
+      action("membershipEdit", {
+        ...editPayload,
+        baseAmount: editPayload.amount,
+        discountType: "fixed",
+        discountValue: 100,
+      }),
+    /discount total/,
+  );
   await action("export", { kind: "collections" });
   d = await read();
-  assert(d.audit.some((a) => a.action === "export" && a.payload.kind === "collections"));
+  assert(
+    d.audit.some(
+      (a) => a.action === "export" && a.payload.kind === "collections",
+    ),
+  );
   await assert.rejects(() => action("export", {}), /Export kind is required/);
   await action("member", { name: "Receipt Grower", phone: "9000000001" });
   d = await read();
   const grower = d.members.find((m) => m.name === "Receipt Grower");
-  await action("membership", { memberId: grower.id, planId: d.plans[0].id, start: "2030-01-01", amount: 100000 });
+  await action("membership", {
+    memberId: grower.id,
+    planId: d.plans[0].id,
+    start: "2030-01-01",
+    amount: 100000,
+  });
   d = await read();
   const growerMembership = d.memberships.find((s) => s.memberId === grower.id);
   await db.query("update gyms set receipt_seq=999999 where id=$1", [g]);
-  await action("payment", { membershipId: growerMembership.id, amount: 100000, method: "Cash" });
+  await action("payment", {
+    membershipId: growerMembership.id,
+    amount: 100000,
+    method: "Cash",
+  });
   d = await read();
-  assert.equal(d.payments.find((p) => p.membershipId === growerMembership.id).receipt, "GD-1000000");
+  assert.equal(
+    d.payments.find((p) => p.membershipId === growerMembership.id).receipt,
+    "GD-1000000",
+  );
+  // Regression: a paid renewal must not hide a previous unpaid fee reminder.
+  await action("member", {
+    name: "Arrears regression",
+    phone: "9876500091",
+    whatsappConsent: true,
+  });
+  d = await read();
+  const arrearsMember = d.members.find((m) => m.name === "Arrears regression");
+  const oldArrears = (
+    await db.query(
+      "insert into memberships(gym_id,member_id,plan_name,start_date,end_date,amount,due_date) values($1,$2,'Previous plan',$3::date-30,$3::date-1,150025,$3::date-1) returning id",
+      [g, arrearsMember.id, day],
+    )
+  ).rows[0].id;
+  const newPeriod = (
+    await db.query(
+      "insert into memberships(gym_id,member_id,plan_name,start_date,end_date,amount,due_date) values($1,$2,'Renewed plan',$3::date,$3::date+30,200000,$3::date) returning id",
+      [g, arrearsMember.id, day],
+    )
+  ).rows[0].id;
+  await action("payment", {
+    membershipId: newPeriod,
+    amount: 200000,
+    method: "Cash",
+  });
+  const dueQueue = async () =>
+    (await db.query("select wa_due_messages($1::date,200) as q", [day])).rows[0]
+      .q;
+  const reminderEntry = () =>
+    dueQueue().then((q) =>
+      q.find(
+        (x) =>
+          x.member_id === arrearsMember.id &&
+          x.template_name === "fee_due_reminder",
+      ),
+    );
+  assert(await reminderEntry());
+  const arrearsPrepared = (
+    await db.query(
+      "select wa_prepare($1,$2,'fee_due_reminder',$3::date) as p",
+      [g, arrearsMember.id, day],
+    )
+  ).rows[0].p;
+  assert.equal(arrearsPrepared.vars.plan_name, "Previous plan");
+  assert.equal(arrearsPrepared.vars.outstanding, "1500.25");
+  assert.equal(arrearsPrepared.vars.amount, "1500.25");
+  await db.query(
+    "select wa_record($1,$2,'out','fee_due_reminder','','9876500091','Test retry','failed','test error')",
+    [g, arrearsMember.id],
+  );
+  assert(await reminderEntry(), "failed sends stay eligible");
+  for (let i = 0; i < 2; i++) {
+    await action("member", {
+      name: "Cap regression " + i,
+      phone: "987650008" + i,
+      whatsappConsent: true,
+    });
+    d = await read();
+    const mid = d.members.find((m) => m.name === "Cap regression " + i).id;
+    await db.query(
+      "insert into memberships(gym_id,member_id,plan_name,start_date,end_date,amount,due_date) values($1,$2,'Cap test',$3::date-30,$3::date+30,10000,$3::date-1)",
+      [g, mid, day],
+    );
+  }
+  await db.query(
+    "update whatsapp_config set daily_send_cap=(select count(*)+1 from message_logs where gym_id=$1 and direction='out' and (created_at at time zone 'Asia/Kolkata')::date=$2::date) where gym_id=$1",
+    [g, day],
+  );
+  assert.equal(
+    (await dueQueue()).filter((x) => x.gym_id === g).length,
+    1,
+    "queue cannot exceed the remaining daily send allowance",
+  );
+  await db.query(
+    "update whatsapp_config set daily_send_cap=1000 where gym_id=$1",
+    [g],
+  );
+  await db.query(
+    "select wa_record($1,$2,'out','fee_due_reminder','wamid.regression.sent','9876500091','Test sent','sent','')",
+    [g, arrearsMember.id],
+  );
+  assert.equal(
+    await reminderEntry(),
+    undefined,
+    "successful sends are not repeated",
+  );
+  await action("payment", {
+    membershipId: oldArrears,
+    amount: 150025,
+    method: "Cash",
+  });
   await db.query("select set_config('test.user',$1,false)", [outsider]);
   await assert.rejects(read, /not been assigned/);
   await assert.rejects(
     () => action("settings", { name: "Attack" }),
     /No active gym/,
   );
+  await db.query("select set_config('test.user',$1,false)", [owner]);
+  await action("plan", {name:"Enrollment test",months:1,price:150000});
+  const enrollmentPlan = (await read()).plans.find(p=>p.name === "Enrollment test");
+  const enrollment = {planId:enrollmentPlan.id,start:"2026-10-19",end:"2026-11-18",dueDate:"2026-10-19",amount:135000,baseAmount:150000,discountType:"percent",discountValue:10};
+  const enrollmentRequest = crypto.randomUUID();
+  const registration = {name:"Enrollment member",phone:"9888877771",enrollment};
+  await action("member", registration, enrollmentRequest);
+  await action("member", registration, enrollmentRequest);
+  const afterEnrollment=await read();
+  const enrolled=afterEnrollment.members.find(m=>m.name==="Enrollment member");
+  assert.equal(afterEnrollment.members.filter(m=>m.name==="Enrollment member").length,1);
+  const periods=afterEnrollment.memberships.filter(m=>m.memberId===enrolled.id);
+  assert.equal(periods.length,1); assert.equal(periods[0].amount,135000);
+  await assert.rejects(()=>action("member",{name:"Rollback member",phone:"9888877772",enrollment:{...enrollment,amount:1}}),/discount total/);
+  assert(!(await read()).members.some(m=>m.name==="Rollback member"), "Invalid enrollment must roll back member creation");
+  await assert.rejects(()=>action("member",{...registration,id:enrolled.id}),/only supported/);
+  // Verify legacy records before applying the stricter checkout policy, then exercise it.
+  await checkFullPaymentPolicy({db,action,read,owner,staff});
   const privileges = await db.query(
     "select has_table_privilege('authenticated','public.payments','INSERT') as allowed",
   );
   assert.equal(privileges.rows[0].allowed, false);
   console.log(
-    "PASS: migration, member profile fields with validation, month-end renewal, overlap rejection, idempotent payments, overpayment rejection, receipt snapshots, owner-only void/override, attendance deduplication, WhatsApp config/templates/rules with service RPCs, staff admin, plan/member deletion and membership expiry, owner-only audit trail, audited CSV exports, seven-digit receipt growth, unassigned-account isolation and denied direct writes.",
+    "PASS: migration, member profile fields with validation, month-end renewal, overlap rejection, idempotent payments, overpayment rejection, receipt snapshots, admin-only void/override, attendance deduplication, WhatsApp config/templates/rules with service RPCs, staff admin, plan/member deletion and membership expiry, admin-only audit trail, audited CSV exports, seven-digit receipt growth, unassigned-account isolation and denied direct writes.",
   );
 } finally {
   await db.close();

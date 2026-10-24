@@ -19,24 +19,24 @@ later be sold to a handful of client gyms.
 
 ## How to read this document
 
-| Tier | Meaning |
-|---|---|
+| Tier             | Meaning                                                  |
+| ---------------- | -------------------------------------------------------- |
 | 🟢 **BUILD NOW** | In scope for this pass — designed and ready to implement |
-| 🟡 **LATER** | Designed now, built in a later phase (listed in §13) |
-| ⛔ **OUT** | Deliberately not doing for the single-gym goal |
+| 🟡 **LATER**     | Designed now, built in a later phase (listed in §13)     |
+| ⛔ **OUT**       | Deliberately not doing for the single-gym goal           |
 
 ### Locked decisions
 
-| Decision | Choice |
-|---|---|
-| Member deletion | Hard-delete **only** when the member has zero history; otherwise **Archive** (owner-only delete) |
-| "Expire the user" | **Force-end membership** (owner + reason ≥5 chars + audit) |
-| Plan deletion | **Delete with usage warning** (past records keep the plan name) |
-| Admin / Staff portals | **Role-based navigation + dashboards** (no URL routing yet — routing stays a later phase) |
-| Staff management UI | **Included** (enable/disable + provisioning helper) |
-| Work order | **Safety-net commit first → features → hardening** |
-| Deployment target | Cloudflare Pages + Supabase · money = integer paise · timezone Asia/Kolkata |
-| Future features (priority) | WhatsApp Cloud API automation, QR/biometric attendance |
+| Decision                   | Choice                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| Member deletion            | Hard-delete **only** when the member has zero history; otherwise **Archive** (owner-only delete) |
+| "Expire the user"          | **Force-end membership** (owner + reason ≥5 chars + audit)                                       |
+| Plan deletion              | **Delete with usage warning** (past records keep the plan name)                                  |
+| Admin / Staff portals      | **Role-based navigation + dashboards** (no URL routing yet — routing stays a later phase)        |
+| Staff management UI        | **Included** (enable/disable + provisioning helper)                                              |
+| Work order                 | **Safety-net commit first → features → hardening**                                               |
+| Deployment target          | Cloudflare Pages + Supabase · money = integer paise · timezone Asia/Kolkata                      |
+| Future features (priority) | WhatsApp Cloud API automation, QR/biometric attendance                                           |
 
 ---
 
@@ -106,7 +106,7 @@ Add member (validate: name / phone / unique phone)
 ### 🟢 Build
 
 1. **Status badges** on member rows and profile: `Active · Expiring · Expired ·
-   Frozen · Archived` — computed from memberships (same source as `active()` in
+Frozen · Archived` — computed from memberships (same source as `active()` in
    `src/domain.ts`).
 2. **Member actions menu** on the profile header:
    Edit · Collect fee · New membership · **Expire membership** (§3) ·
@@ -114,13 +114,15 @@ Add member (validate: name / phone / unique phone)
    **Restore** · **Delete permanently** (owner-only, see rule below).
 3. **Delete flow:**
    - Button enabled **only** when `memberships + payments + attendance +
-     reminder_logs` rows for that member are all zero.
+reminder_logs` rows for that member are all zero.
    - If history exists, the dialog says so and offers **Archive instead**.
    - Confirm by **typing the member's name** (market-standard for destructive acts).
    - SQL action `memberDelete`: owner-only, the zero-history count check runs
      **server-side** (never trusted from the client), writes an audit row.
-   - Demo mode (`demoAction` in `src/api.ts`) gets the identical case so the
-     browser test suite keeps passing without Supabase.
+   - The live SQL action `memberDelete` runs the zero-history count check
+     **server-side** (never trusted from the client) and writes an audit row.
+     (The old browser demo mode and its `demoAction` mirror were removed; the
+     zero-history rule is covered by `tests/database.mjs` against real SQL.)
    - Consequence: receipts and audit history are immutable forever — add a
      database test asserting this.
 4. **Archived filter + Restore** — the Archived filter exists (`src/App.tsx:1650`);
@@ -192,39 +194,20 @@ Delete → dialog:
    warn-and-proceed.
 2. **Plans as an admin section** (out of Settings) with inline usage counts
    ("2 active · 12 past").
-3. Frontend delete button uses the generic confirm dialog; demo mode +
-   database tests for the guard.
+3. Frontend delete button uses the generic confirm dialog; database tests cover
+   the guard.
 
 🟡 Later: retire/archive flag as an alternative to delete; session packs.
 
 ---
 
-## 5. Fees & Receipts (collect → partial → receipt → void)
+## 5. Fees & Receipts — current full-payment flow
 
-**Current state (already market-strong):** member search → remaining balance →
-full-balance shortcut → partial payment → sequential receipt `GD-####` → void
-(owner + reason) → idempotent retries → CSV exports.
+Implemented 23 October 2026: the existing Collect payment and Renew actions share a member-first checkout. Search/select member → choose membership plan and dates or select an existing outstanding membership → review discount/full amount → record method/reference → receive payment → receipt.
 
-**Market-standard flow (core unchanged):**
+Add member supports member details, optional membership, and full payment in one transaction. Profile-only registration remains available. Positive payments must equal the selected charge/balance; existing partial-payment history is preserved. Digital payments require a reference. Paid prices/plan names are protected; existing admin void and correction workflows retain their records. No refund or extra CRM features are introduced here.
 
-```
-Collect fee → member → balance shown → amount (partial OK)
-  → method (Cash/UPI/Card/Bank) → receipt → share receipt (WhatsApp link)
-  → (later) refund / GST invoice
-```
-
-### 🟢 Build
-
-1. **Receipt → WhatsApp** button on the receipt modal using the existing `wa.me`
-   prepared-message pattern; honors `whatsapp_consent` (zero-cost interim until
-   the Cloud API lands).
-2. Deleting a member with payments is structurally impossible (§2) — receipts stay
-   immutable; covered by a database test.
-3. Member CSV export becomes **owner-only + audit-logged** (PII); CSV
-   formula-injection guard hardened to strip leading tab/CR (`src/App.tsx:112`).
-
-🟡 Later: GST invoicing (SAC 999721, 18%), PDF receipts, Razorpay payment links,
-refunds, instalment plans.
+Migration: `017_full_payment_checkout.sql`. Tests: `test:checkout`, `test:db`, domain tests, page-layout tests, production build and server tests. Live browser tests are reserved for a disposable local gym.
 
 ---
 
@@ -337,31 +320,30 @@ sold as SaaS.
 
 ---
 
-## 11. Auth, Onboarding & Demo Mode
+## 11. Auth & Onboarding
 
-**Current state:** email + password, password-reset flow, no public signup,
-demo mode persisted in `localStorage` (`gymdesk-demo-v1`).
+**Current state:** email + password, password-reset flow, no public signup.
+The former browser demo mode (`localStorage` `gymdesk-demo-v1`, `demoAction`,
+demo banner and "Connect your gym" flow) has been **removed entirely**; the app
+now runs only against a connected Supabase project and tests sign in to the
+local stack.
 
 ### 🟢 Build
 
 1. Generic sign-in failure message ("Incorrect email or password").
 2. Password minimum applied consistently (client SQL-parity already exists).
-3. **Demo parity rule:** every new action (`memberDelete`, `expire`,
-   `planDelete`, `staffToggle`) gets an identical `demoAction` implementation so
-   the Playwright suite keeps passing without Supabase.
-4. Demo banner and "Connect your gym" flow unchanged.
 
 ---
 
 ## 12. Data & API changes — `006_lifecycle_and_portals.sql`
 
-| Action (`gym_action` type) | Actor | Server-side guard |
-|---|---|---|
-| `memberDelete` | owner | zero-history count across memberships/payments/attendance/reminder_logs; else `raise exception` |
-| `expire` | owner | reason ≥5 chars; not cancelled; not already ended; sets `expired_early`/`expired_at` |
-| `planDelete` | owner | usage counts; block only future-starting memberships |
-| `staffToggle` | owner | cannot disable last enabled owner; cannot disable self |
-| Portal split | — | **frontend-only** — no SQL |
+| Action (`gym_action` type) | Actor | Server-side guard                                                                               |
+| -------------------------- | ----- | ----------------------------------------------------------------------------------------------- |
+| `memberDelete`             | owner | zero-history count across memberships/payments/attendance/reminder_logs; else `raise exception` |
+| `expire`                   | owner | reason ≥5 chars; not cancelled; not already ended; sets `expired_early`/`expired_at`            |
+| `planDelete`               | owner | usage counts; block only future-starting memberships                                            |
+| `staffToggle`              | owner | cannot disable last enabled owner; cannot disable self                                          |
+| Portal split               | —     | **frontend-only** — no SQL                                                                      |
 
 Schema additions:
 
@@ -391,15 +373,15 @@ Tests to add:
 
 ## 13. Build order
 
-| Phase | Content | Status (2026-10-15) |
-|---|---|---|
-| **0. Safety net** | `git init` + `.gitignore` fix + baseline commit · npm scripts (`typecheck`, `check:server`, `test:db`, `test:browser`) · dev-server/test port aligned on 5173 | ✅ done |
-| **1. Portals** | role-filtered nav (Audit owner-only) · Staff & access manager in Settings (enable/disable/role/remove, keep-one-owner guard) · staff provisioning SQL helper | ✅ done |
-| **2. Member lifecycle** | Archive/restore · `memberDelete` (zero-history hard delete) · `expire` (End access) · audit trail page | ✅ done |
-| **3. Plans** | `planDelete` with usage warning (past records keep plan name) | ✅ done |
-| **4. UX polish** | membership edit modal · WhatsApp messaging UI · member photos · birthdays/discounts · check-out flow · demo backup/transfer · PWA install | ✅ done |
-| **5. Hardening** | CI workflow � lint/format adoption � security headers (`public/_headers` + CSP) � error boundary + global handlers � friendly SQL-error mapping � export audit � PKCE auth � receipt `lpad` truncation fix � `search_path` fix (public, pg_temp) � live Supabase integration run | ? **done** |
-| **🟡 Later** | QR kiosk · biometrics · GST invoicing · UPI/Razorpay · member portal · URL routing · expenses/P&L · CSV import · pagination/server summaries | separate plans |
+| Phase                   | Content                                                                                                                                                                                                                                                                          | Status (2026-10-15) |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **0. Safety net**       | `git init` + `.gitignore` fix + baseline commit · npm scripts (`typecheck`, `check:server`, `test:db`, `test:browser`) · dev-server/test port aligned on 5173                                                                                                                    | ✅ done             |
+| **1. Portals**          | role-filtered nav (Audit owner-only) · Staff & access manager in Settings (enable/disable/role/remove, keep-one-owner guard) · staff provisioning SQL helper                                                                                                                     | ✅ done             |
+| **2. Member lifecycle** | Archive/restore · `memberDelete` (zero-history hard delete) · `expire` (End access) · audit trail page                                                                                                                                                                           | ✅ done             |
+| **3. Plans**            | `planDelete` with usage warning (past records keep plan name)                                                                                                                                                                                                                    | ✅ done             |
+| **4. UX polish**        | membership edit modal · WhatsApp messaging UI · member photos · birthdays/discounts · check-out flow · PWA install                                                                                                                                                               | ✅ done             |
+| **5. Hardening**        | CI workflow � lint/format adoption � security headers (`public/_headers` + CSP) � error boundary + global handlers � friendly SQL-error mapping � export audit � PKCE auth � receipt `lpad` truncation fix � `search_path` fix (public, pg_temp) � live Supabase integration run | ? **done**          |
+| **🟡 Later**            | QR kiosk · biometrics · GST invoicing · UPI/Razorpay · member portal · URL routing · expenses/P&L · CSV import · pagination/server summaries                                                                                                                                     | separate plans      |
 
 **Verification gate** (all pass as of the baseline commit):
 
@@ -416,17 +398,17 @@ node tests/browser.mjs      # needs dev server on 5173 or GYMDESK_TEST_URL
 
 ## 14. Explicitly deferred (market-standard, not this pass)
 
-| Feature | Why deferred |
-|---|---|
-| GST invoicing (SAC 999721, 18% CGST/SGST, GSTR-1) | Below the ₹20L registration threshold at 30 members |
-| UPI gateway / Razorpay / AutoPay mandates | Manual entry works for one gym; webhook infra is its own phase |
-| WhatsApp automation | 🟢 built (`functions/api/whatsapp/` + Messages page); go-live depends on Meta-approved templates and live credentials |
-| QR kiosk + biometric attendance | 🟡 after portals pass; biometrics blocked on device API discovery |
-| Member self-service portal / native apps | PWA first; native = ₹11.8K first year, rewrite cost |
-| Enquiry/lead management | Not yet needed at single-gym scale |
-| Expenses, P&L, Tally export | Finance scope beyond collections |
-| URL routing + deep links | Phase 2 of architecture work (portal split is nav-based for now) |
-| Supabase Pro upgrade | Free tier suffices for 30 members; upgrade when real data demands backups/no-pause |
+| Feature                                           | Why deferred                                                                                                          |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| GST invoicing (SAC 999721, 18% CGST/SGST, GSTR-1) | Below the ₹20L registration threshold at 30 members                                                                   |
+| UPI gateway / Razorpay / AutoPay mandates         | Manual entry works for one gym; webhook infra is its own phase                                                        |
+| WhatsApp automation                               | 🟢 built (`functions/api/whatsapp/` + Messages page); go-live depends on Meta-approved templates and live credentials |
+| QR kiosk + biometric attendance                   | 🟡 after portals pass; biometrics blocked on device API discovery                                                     |
+| Member self-service portal / native apps          | PWA first; native = ₹11.8K first year, rewrite cost                                                                   |
+| Enquiry/lead management                           | Not yet needed at single-gym scale                                                                                    |
+| Expenses, P&L, Tally export                       | Finance scope beyond collections                                                                                      |
+| URL routing + deep links                          | Phase 2 of architecture work (portal split is nav-based for now)                                                      |
+| Supabase Pro upgrade                              | Free tier suffices for 30 members; upgrade when real data demands backups/no-pause                                    |
 
 ---
 

@@ -9,8 +9,8 @@ import {
 import type { Data, StaffRole } from "./domain";
 import type { Action } from "./api";
 const roleLabel: Record<string, string> = {
-  owner: "Owner",
-  reception: "Reception",
+  owner: "Admin",
+  reception: "Staff",
 };
 const actionLabel = (a: string) => {
   const map: Record<string, string> = {
@@ -89,11 +89,12 @@ export function StaffManager({
         </span>
       </div>
       <p className="helper">
-        Owners manage everything. Reception staff can record members, payments,
+        Admins manage everything. Staff can record members, payments,
         memberships and attendance. Create the person's account in Supabase
         Authentication first, then add their email here.
       </p>
-      {staff.map((s) => (
+      <div className="record-scroll" role="region" aria-label="Staff accounts" tabIndex={0}>
+{staff.map((s) => (
         <div className="list-item" key={s.id}>
           <span className="list-icon">
             <ShieldCheck size={18} />
@@ -124,8 +125,8 @@ export function StaffManager({
               )
             }
           >
-            <option value="owner">Owner</option>
-            <option value="reception">Reception</option>
+            <option value="owner">Admin</option>
+            <option value="reception">Staff</option>
           </select>
           <button
             className="small-button"
@@ -162,6 +163,7 @@ export function StaffManager({
           </button>
         </div>
       ))}
+</div>
       <form className="inline-form staff-add" onSubmit={add}>
         <input
           type="email"
@@ -176,8 +178,8 @@ export function StaffManager({
           value={role}
           onChange={(e) => setRole(e.target.value as StaffRole)}
         >
-          <option value="reception">Reception</option>
-          <option value="owner">Owner</option>
+          <option value="reception">Staff user</option>
+          <option value="owner">Admin user</option>
         </select>
         <button className="primary" disabled={busy || !email.trim()}>
           <UserPlus size={16} /> Add staff
@@ -198,7 +200,7 @@ export function AuditLog({ data }: { data: Data }) {
       </div>
       <p className="helper">
         Every saved change is recorded with the staff account that made it.
-        Owners can review this trail; it cannot be edited or deleted here.
+        Admins can review this trail; it cannot be edited or deleted here.
       </p>
       {audit.length === 0 && (
         <div className="empty">
@@ -206,7 +208,8 @@ export function AuditLog({ data }: { data: Data }) {
           <p>No recorded activity yet.</p>
         </div>
       )}
-      {audit.map((a) => (
+      <div className="record-scroll" role="region" aria-label="Activity audit records" tabIndex={0}>
+{audit.map((a) => (
         <details className="audit-row" key={a.id}>
           <summary>
             <span className="list-icon">
@@ -223,6 +226,7 @@ export function AuditLog({ data }: { data: Data }) {
           </pre>
         </details>
       ))}
+</div>
     </section>
   );
 }

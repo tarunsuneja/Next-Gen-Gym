@@ -1,6 +1,23 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&display=swap");
+/* Use a local currency glyph so INR stays legible while web fonts load. */
+@font-face {
+  font-family: "NGF Rupee";
+  src: local("Segoe UI"), local("Roboto"), local("Noto Sans"), local("Arial");
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: U+20B9;
+  font-display: swap;
+}
+@font-face {
+  font-family: "NGF Rupee";
+  src: local("Segoe UI Bold"), local("Roboto Bold"), local("Noto Sans Bold"), local("Arial Bold");
+  font-style: normal;
+  font-weight: 500 900;
+  unicode-range: U+20B9;
+  font-display: swap;
+}
 :root {
-  font-family: "DM Sans", sans-serif;
+  font-family: "NGF Rupee", "DM Sans", "Segoe UI", Arial, sans-serif;
   color: #23343e;
   background: #f5f7f9;
   font-synthesis: none;
@@ -59,7 +76,7 @@ p {
 h1,
 h2,
 h3 {
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-ui);
 }
 h1 {
   font-size: 2.3rem;
@@ -193,7 +210,7 @@ button.primary,
   display: flex;
   align-items: center;
   gap: 9px;
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-ui);
   font-size: 1.9rem;
   font-weight: 800;
   letter-spacing: -1px;
@@ -230,36 +247,6 @@ button.primary,
 }
 .sidebar .brand {
   padding-left: 8px;
-}
-.gym-switch {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid #ffffff13;
-  background: #ffffff04;
-  border-radius: 9px;
-  margin: 32px 0;
-  padding: 12px;
-}
-.gym-icon {
-  width: 33px;
-  height: 33px;
-  display: grid;
-  place-items: center;
-  background: #29434b;
-  border-radius: 7px;
-  color: #ccddd9;
-  font-weight: 700;
-}
-.gym-switch strong {
-  color: #e8f0f2;
-  font-size: 0.95rem;
-  display: block;
-}
-.gym-switch small {
-  display: block;
-  font-size: 0.78rem;
-  margin-top: 3px;
 }
 .nav-label {
   font-size: 0.7rem;
@@ -487,7 +474,7 @@ main {
   color: #8f6ac0;
 }
 .stat > strong {
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-ui);
   display: block;
   font-size: 2.05rem;
   letter-spacing: -0.8px;
@@ -551,7 +538,7 @@ main {
   gap: 12px;
 }
 .chart-summary strong {
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-ui);
   font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -834,7 +821,7 @@ tbody tr:last-child td {
 }
 .mini-stats b {
   color: #2e4650;
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-ui);
   font-size: 1.4rem;
   margin-right: 8px;
 }

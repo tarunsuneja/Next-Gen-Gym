@@ -1,7 +1,13 @@
 import { useRef, useState } from "react";
 import { Camera } from "lucide-react";
 
-export function MemberPhoto({ initial = "", disabled = false }: { initial?: string; disabled?: boolean }) {
+export function MemberPhoto({
+  initial = "",
+  disabled = false,
+}: {
+  initial?: string;
+  disabled?: boolean;
+}) {
   const [photo, setPhoto] = useState(initial);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -11,8 +17,14 @@ export function MemberPhoto({ initial = "", disabled = false }: { initial?: stri
     const current = ++version.current;
     setError("");
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Choose a JPG, PNG or WebP image."); return; }
-    if (file.size > 5 * 1024 * 1024) { setError("Choose a photo smaller than 5 MB."); return; }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Choose a photo smaller than 5 MB.");
+      return;
+    }
     setLoading(true);
     const url = URL.createObjectURL(file);
     try {
@@ -26,28 +38,98 @@ export function MemberPhoto({ initial = "", disabled = false }: { initial?: stri
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, 256, 256);
       const side = Math.min(img.naturalWidth, img.naturalHeight);
-      ctx.drawImage(img, (img.naturalWidth-side)/2, (img.naturalHeight-side)/2, side, side, 0, 0, 256, 256);
+      ctx.drawImage(
+        img,
+        (img.naturalWidth - side) / 2,
+        (img.naturalHeight - side) / 2,
+        side,
+        side,
+        0,
+        0,
+        256,
+        256,
+      );
       const result = canvas.toDataURL("image/jpeg", 0.8);
-      if (result.length > 100000) throw Error("Please choose a simpler or smaller photo.");
+      if (result.length > 100000)
+        throw Error("Please choose a simpler or smaller photo.");
       if (current === version.current) setPhoto(result);
-    } catch { if (current === version.current) setError("This image could not be processed. Try another photo."); }
-    finally { URL.revokeObjectURL(url); if (current === version.current) setLoading(false); if (input.current) input.current.value = ""; }
+    } catch {
+      if (current === version.current)
+        setError("This image could not be processed. Try another photo.");
+    } finally {
+      URL.revokeObjectURL(url);
+      if (current === version.current) setLoading(false);
+      if (input.current) input.current.value = "";
+    }
   }
-  return <fieldset className="member-photo" disabled={disabled}>
-    <legend>Profile photo <span className="optional">optional</span></legend>
-    <input type="hidden" name="photo" value={photo} />
-    <div className="member-photo-row">
-      <div className="member-photo-preview">{photo ? <img src={photo} alt="Member photo preview" /> : <Camera size={24} aria-label="No photo" />}</div>
-      <div>
-        <input ref={input} className="photo-file-input" aria-label="Upload profile photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => void choose(e.target.files?.[0])} disabled={loading} />
-        <div className="photo-buttons"><button type="button" className="small-button" disabled={loading} onClick={() => input.current?.click()}>{photo ? "Change photo" : "Upload photo"}</button>
-        
-        {photo && <button type="button" className="small-button" disabled={loading} onClick={() => { ++version.current; setPhoto(""); setError(""); }}>Remove photo</button>}
-        </div><small>JPG, PNG or WebP · Max 5 MB</small>
+  return (
+    <fieldset className="member-photo" disabled={disabled}>
+      <legend>
+        Profile photo <span className="optional">optional</span>
+      </legend>
+      <input type="hidden" name="photo" value={photo} />
+      <div className="member-photo-row">
+        <div className="member-photo-preview">
+          {photo ? (
+            <img src={photo} alt="Member photo preview" />
+          ) : (
+            <Camera size={24} aria-label="No photo" />
+          )}
+        </div>
+        <div>
+          <input
+            ref={input}
+            className="photo-file-input"
+            aria-label="Upload profile photo"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => void choose(e.target.files?.[0])}
+            disabled={loading}
+          />
+          <div className="photo-buttons">
+            <button
+              type="button"
+              className="small-button"
+              disabled={loading}
+              onClick={() => input.current?.click()}
+            >
+              {photo ? "Change photo" : "Upload photo"}
+            </button>
+
+            {photo && (
+              <button
+                type="button"
+                className="small-button"
+                disabled={loading}
+                onClick={() => {
+                  ++version.current;
+                  setPhoto("");
+                  setError("");
+                }}
+              >
+                Remove photo
+              </button>
+            )}
+          </div>
+          <small>JPG, PNG or WebP · Max 5 MB</small>
+        </div>
       </div>
-    </div>
-    {loading && <p role="status">Preparing photo…</p>}
-    {loading && <input className="photo-processing" aria-label="Photo is processing" required value="" onChange={() => {}} tabIndex={-1} />}
-    {error && <p className="error" role="alert">{error}</p>}
-  </fieldset>;
+      {loading && <p role="status">Preparing photo…</p>}
+      {loading && (
+        <input
+          className="photo-processing"
+          aria-label="Photo is processing"
+          required
+          value=""
+          onChange={() => {}}
+          tabIndex={-1}
+        />
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
 }
