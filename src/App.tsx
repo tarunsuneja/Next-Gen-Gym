@@ -1090,10 +1090,10 @@ export default function App() {
             saved.members
               .slice()
               .reverse()
-              .find((m: any) => m.name === s("name").trim() && m.phone === phone) ||
+              .find((m) => m.name === s("name").trim() && m.phone === phone) ||
               null,
           );
-          const receipt = (saved.payments as any[]).find(
+          const receipt = saved.payments.find(
             (p) => p.requestId === s("paymentRequestId"),
           );
           if (receipt)
@@ -2906,7 +2906,7 @@ export default function App() {
               }))}
               receipt={(pid) => {
                 setGlobalSearch(false);
-                const payment = d.payments.find((p: any) => p.id === pid);
+                const payment = d.payments.find((p) => p.id === pid);
                 if (payment) setModal({ kind: "receipt", payment });
               }}
             />
