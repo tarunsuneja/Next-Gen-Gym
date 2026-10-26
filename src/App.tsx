@@ -228,7 +228,7 @@ function Badge({
 }) {
   return <span className={"badge " + tone}>{children}</span>;
 }
-function Brand() {
+function Brand({ showUnit = false }: { showUnit?: boolean }) {
   return (
     <>
       <img
@@ -239,6 +239,11 @@ function Brand() {
       <span className="brand-name">
         Next Generation<span>Fitness Gym</span>
       </span>
+      {showUnit && (
+        <div className="brand-unit">
+          <small>Unit by <strong>Gagandeep</strong></small>
+        </div>
+      )}
     </>
   );
 }
@@ -1341,7 +1346,7 @@ export default function App() {
             navigate("Dashboard");
           }}
         >
-          <Brand />
+          <Brand showUnit />
         </a>
         <span className="nav-label">WORKSPACE</span>
         <nav aria-label="Main navigation">

@@ -8,6 +8,7 @@ import "./theme.css";
 import "./refinements.css";
 import "./typography.css";
 import "./dashboard.css";
+import "./sidebar.css";
 window.addEventListener("error", (event) => {
   console.error("Uncaught error:", event.error ?? event.message);
 });

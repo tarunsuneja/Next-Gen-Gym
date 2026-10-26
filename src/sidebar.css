@@ -1,0 +1,128 @@
+/* Keep the brand and account anchored while navigation scrolls independently. */
+.app > .sidebar {
+  height: 100dvh;
+  padding: 24px 14px 14px;
+  overflow: hidden;
+}
+.app > .sidebar > .brand {
+  flex-shrink: 0;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0 6px 22px;
+  padding: 0;
+  text-decoration: none;
+}
+.sidebar .brand .gym-logo {
+  width: 48px;
+  height: 48px;
+}
+.sidebar .brand .brand-name {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+.sidebar .brand-name > span {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+}
+.sidebar .brand .brand-unit {
+  margin-top: 2px;
+  padding-top: 10px;
+  font-size: 12px;
+}
+.app > .sidebar > .nav-label {
+  flex-shrink: 0;
+  margin: 0 12px 10px;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+}
+.app > .sidebar > nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #51414a transparent;
+}
+.sidebar nav .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin: 0 0 5px;
+  padding: 11px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+}
+.sidebar nav .nav-item > svg {
+  flex-shrink: 0;
+}
+.sidebar nav .nav-item > span {
+  flex: 1;
+}
+.sidebar nav .nav-item > b {
+  margin-left: auto;
+  min-width: 22px;
+  text-align: center;
+}
+.app > .sidebar > .sidebar-bottom {
+  flex-shrink: 0;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #ffffff14;
+}
+.sidebar .sidebar-note {
+  padding: 4px 10px 12px;
+  font-size: 12px;
+}
+.sidebar .staff {
+  min-height: 52px;
+  padding: 10px 8px 0;
+  gap: 10px;
+}
+.sidebar .staff > span:not(.avatar) {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar .brand:focus-visible,
+.sidebar .nav-item:focus-visible,
+.sidebar .staff:focus-visible {
+  outline: 2px solid #ff8998;
+  outline-offset: -2px;
+}
+@media (min-width: 721px) {
+  .sidebar-collapsed.app > .sidebar {
+    padding: 24px 10px 14px;
+  }
+  .sidebar-collapsed.app > .sidebar > .brand {
+    margin: 0 0 22px;
+    justify-content: center;
+  }
+  .sidebar-collapsed.app > .sidebar > nav {
+    margin-top: 0;
+  }
+  .sidebar-collapsed .sidebar nav .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+  }
+  .sidebar-collapsed .sidebar .staff {
+    padding-inline: 0;
+  }
+}
+@media (max-width: 720px) {
+  .app > .sidebar {
+    padding-top: 58px;
+    width: min(280px, calc(100vw - 48px));
+  }
+  .sidebar .sidebar-close {
+    top: 8px;
+    right: 10px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+}

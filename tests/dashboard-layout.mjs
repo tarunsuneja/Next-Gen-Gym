@@ -79,6 +79,24 @@ try {
   await page.getByLabel("Password").fill("layout-only-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("heading", { name: "Dashboard", exact: true }).waitFor();
+  for (const width of [1440, 1000, 390]) {
+    await page.setViewportSize({ width, height: 540 });
+    if (width <= 720)
+      await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+    const sidebar = page.locator("aside.sidebar");
+    assert(await sidebar.getByText("Gagandeep", { exact: true }).isVisible());
+    assert(await sidebar.evaluate((el) => el.scrollWidth <= el.clientWidth));
+    const nav = sidebar.getByRole("navigation");
+    await nav.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    assert(await nav.evaluate((el) => el.scrollTop > 0), "Short viewports scroll navigation");
+    const accountBox = await sidebar.getByRole("button", { name: "Sign out", exact: true }).boundingBox();
+    assert(accountBox.y >= 0 && accountBox.y + accountBox.height <= 541, "Account stays in the viewport");
+    await page.screenshot({ path: `tests/artifacts/sidebar-${width}.png`, animations: "disabled" });
+    await nav.evaluate((el) => { el.scrollTop = 0; });
+    if (width <= 720)
+      await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator(".movement-card.joined button").click();
   assert.equal(await page.locator(".movement-popup-list button").count(), 30);
   const listBox = await page.locator(".movement-popup-list").boundingBox();
