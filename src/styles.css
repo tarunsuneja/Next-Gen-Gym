@@ -137,58 +137,64 @@ label textarea {
 }
 button.primary,
 .primary {
-  background: var(--teal);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-foreground);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 18px;
-  border-radius: 8px;
-  font-weight: 600;
-  box-shadow: 0 3px 6px #087f6d15;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  box-shadow: none;
 }
 .primary:hover {
-  background: #066c5c;
+  background: var(--primary-hover);
 }
 .secondary,
 .small-button {
-  border: 1px solid #dfe5e8;
-  background: white;
-  border-radius: 8px;
-  padding: 11px 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 10px 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  font-weight: 550;
+  font-weight: 500;
+  font-size: 0.875rem;
   white-space: nowrap;
 }
 .secondary:hover,
 .small-button:hover {
-  background: #f0f7f5;
+  background: var(--soft);
 }
 .small-button {
-  padding: 8px 11px;
-  font-size: 0.9rem;
+  padding: 8px 12px;
+  font-size: 0.875rem;
 }
 .icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 8px;
-  border-radius: 7px;
+  border-radius: 6px;
+  color: var(--muted);
 }
 .icon-button:hover {
-  background: #eef4f3;
+  background: var(--soft);
+  color: var(--ink);
 }
 .text-button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--teal);
-  font-weight: 600;
+  color: var(--primary);
+  font-weight: 500;
   padding: 8px 0;
+  font-size: 0.875rem;
 }
 .muted,
 .helper {

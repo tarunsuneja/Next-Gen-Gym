@@ -1343,7 +1343,7 @@ export default function App() {
         >
           <Brand />
         </a>
-        <span className="nav-label">WORKSPACE</span>
+        <span className="nav-label">Navigation</span>
         <nav aria-label="Main navigation">
           {nav
             .filter(([p]) => p !== "Audit" || role === "owner")
