@@ -84,6 +84,11 @@ body {
   margin-top: 5px;
   color: #e96473;
 }
+.sidebar-brand {
+  border-bottom: 1px solid #2a272c;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
 .sidebar .brand {
   padding-left: 0;
   flex-direction: column;
@@ -101,7 +106,6 @@ body {
 .sidebar {
   background: #131316;
   color: #aaa3ae;
-  border-bottom: 1px solid #2a272c;
 }
 .nav-label {
   color: #897d89;

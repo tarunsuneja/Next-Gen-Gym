@@ -1338,16 +1338,19 @@ export default function App() {
         >
           <X size={20} />
         </button>
-        <a
-          className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("Dashboard");
-          }}
-        >
-          <Brand showUnit />
-        </a>
+        <div className="sidebar-brand">
+          <a
+            className="brand"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("Dashboard");
+            }}
+          >
+            <Brand showUnit />
+          </a>
+          <div className="sidebar-brand-divider" />
+        </div>
         <span className="nav-label">WORKSPACE</span>
         <nav aria-label="Main navigation">
           {nav
