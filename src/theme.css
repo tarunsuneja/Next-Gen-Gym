@@ -101,6 +101,7 @@ body {
 .sidebar {
   background: #131316;
   color: #aaa3ae;
+  border-bottom: 1px solid #2a272c;
 }
 .nav-label {
   color: #897d89;
