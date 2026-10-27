@@ -1,3 +1,4 @@
+import { attentionGroups } from "../src/features/dashboard/attention";
 import { pendingFeeRows } from "../src/features/dashboard/pendingFees";
 import { takeInvitation } from "../src/data/invitation";
 import { dashboardFixture } from "./fixtures";
@@ -131,7 +132,7 @@ test("freeze eligibility, expiry extension, conflicts and cancellation", () => {
   );
   d.memberships[0].cancelled = true;
   assert.equal(active(d, m), false);
-  assert.equal(outstanding(d, d.memberships[0]), s.amount);
+  assert.equal(outstanding(d, d.memberships[0]), 0);
   const another = seed(),
     period = another.memberships[0];
   another.memberships.push({
@@ -935,4 +936,96 @@ test("admin invite tokens are consumed once without changing regular PKCE or rec
     assert.equal(takeInvitation(url), null);
     assert.equal(url.href, link);
   }
+});
+
+test("pending fees and expiry reminders represent independent lifecycle states", () => {
+  const source = seed();
+  const data = {
+    ...source,
+    members: [],
+    memberships: [],
+    payments: [],
+    attendance: [],
+  } as typeof source;
+  function add(
+    name: string,
+    options: {
+      paid?: boolean;
+      expiry?: number;
+      start?: number;
+      cancelled?: boolean;
+      archived?: boolean;
+      joined?: number;
+      voided?: boolean;
+    } = {},
+  ) {
+    const member = {
+      ...source.members[0],
+      id: name,
+      name,
+      joined: shiftDay(today(), options.joined ?? -60),
+      archived: !!options.archived,
+    };
+    const period = {
+      ...source.memberships[0],
+      id: `${name}-period`,
+      memberId: name,
+      start: shiftDay(today(), options.start ?? -30),
+      end: shiftDay(today(), options.expiry ?? 30),
+      cancelled: !!options.cancelled,
+      amount: 120000,
+      dueDate: shiftDay(today(), 3),
+    };
+    data.members.push(member);
+    data.memberships.push(period);
+    if (options.paid || options.voided)
+      data.payments.push({
+        ...source.payments[0],
+        id: `${name}-receipt`,
+        membershipId: period.id,
+        memberId: name,
+        amount: 120000,
+        voided: !!options.voided,
+      });
+    return period;
+  }
+  add("New unpaid", { start: 0, joined: 0 });
+  add("Paid expiring", { paid: true, expiry: 2 });
+  add("Unpaid expiring", { expiry: 2 });
+  add("Paid expired", { paid: true, expiry: -1 });
+  add("Cancelled unpaid", { cancelled: true, expiry: 2 });
+  add("Archived unpaid", { archived: true, expiry: 2 });
+  add("Future paid", { paid: true, start: 3, expiry: 33 });
+  add("Voided payment", { voided: true });
+  add("Recent start", { paid: true, start: 0, joined: -60 });
+  add("Fourteen days absent", { paid: true, start: -14 });
+  data.members.push({ ...source.members[0], id: "No plan", name: "No plan", archived: false });
+  const groups = attentionGroups(data, today());
+  const has = (category: Parameters<typeof groups.get>[0] | "Pending payments", name: string) =>
+    category === "Pending payments" ? pendingFeeRows(data).some((r) => r.id === name) : groups.get(category)!.some((m) => m.id === name);
+  for (const name of [
+    "New unpaid",
+    "Unpaid expiring",
+    "Archived unpaid",
+    "Voided payment",
+  ])
+    assert(has("Pending payments", name));
+  for (const name of ["Paid expiring", "Unpaid expiring", "Paid expired"])
+    assert(has("Expiring memberships", name));
+  for (const name of [
+    "New unpaid",
+    "Archived unpaid",
+    "Cancelled unpaid",
+    "Future paid",
+  ])
+    assert(!has("Expiring memberships", name));
+  assert(!has("Pending payments", "Paid expiring"));
+  assert(!has("Pending payments", "Cancelled unpaid"));
+  assert(!has("Absent 14+ days", "Recent start"));
+  assert(!has("Absent 14+ days", "Future paid"));
+  assert(has("Absent 14+ days", "Fourteen days absent"));
+  assert(has("Members without a plan", "No plan"));
+  assert(has("Members without a plan", "Cancelled unpaid"));
+  assert(!has("Members without a plan", "Future paid"));
+  assert.deepEqual(attentionGroups(dashboardFixture(data), today()), groups);
 });

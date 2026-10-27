@@ -1,0 +1,1900 @@
+/* Shared phone layout: consistent records, toolbars and touch targets. */
+@media (max-width: 600px) {
+  .panel {
+    min-width: 0;
+  }
+  .panel-header {
+    gap: 12px;
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .panel-header > div {
+    min-width: 0;
+  }
+  .panel-header h2 {
+    font-size: 16px;
+    line-height: 1.4;
+  }
+  .panel-header .text-button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .toolbar {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .toolbar .search {
+    width: 100%;
+    min-width: 0;
+  }
+  .toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+  .toolbar-actions > button,
+  .toolbar-actions > select {
+    flex: 1 1 130px;
+    min-width: 0;
+    min-height: 42px;
+  }
+  .panel:not(.members-directory) .table-scroll {
+    padding: 0 12px 12px;
+  }
+  .panel:not(.members-directory) .table-scroll tr {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    padding: 14px;
+    margin-bottom: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+  }
+  .panel:not(.members-directory) .table-scroll tr:last-child {
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0;
+  }
+  .table-scroll td {
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .table-scroll td:before {
+    font-size: 11px;
+  }
+  .member-cell {
+    gap: 10px;
+    text-align: left;
+  }
+  .member-cell > span {
+    min-width: 0;
+  }
+  .member-cell .avatar {
+    flex-shrink: 0;
+  }
+  .member-cell strong {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .member-cell small {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .panel:not(.members-directory) .table-scroll td.row-action {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .panel:not(.members-directory) .row-action > button,
+  .panel:not(.members-directory) .row-action > a {
+    flex: 1 1 120px;
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .row-action .icon-button:after {
+    margin-left: 0;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .row-action svg {
+    flex-shrink: 0;
+  }
+  .pagination {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .pagination > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .pagination .small-button {
+    min-height: 42px;
+    font-size: 12px;
+  }
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    scrollbar-width: thin;
+  }
+  .tabs > button {
+    flex-shrink: 0;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .list-item {
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .list-item > div {
+    min-width: 0;
+  }
+  .list-item strong {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .list-item small {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .list-item > strong {
+    white-space: nowrap;
+    margin-left: auto;
+  }
+  .form-grid {
+    min-width: 0;
+  }
+  .form-grid > *,
+  .field {
+    min-width: 0;
+  }
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+  .modal .form-actions {
+    gap: 8px;
+  }
+  .modal .form-actions > button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Five metrics: let the final card fill its row. */
+  .dashboard-workspace .dashboard-metrics > .movement-metric {
+    grid-column: 1 / -1;
+    min-height: 132px;
+  }
+  .dashboard-workspace .movement-metric-values {
+    margin-block: 8px;
+  }
+  .dashboard-board .pending-whatsapp-row > .list-item-button > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .dashboard-board .pending-whatsapp-row .list-item-button small {
+    display: block;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .dashboard-board .pending-whatsapp-action {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding-left: 0;
+    gap: 8px;
+  }
+  .dashboard-board .pending-whatsapp-action > * {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    padding: 8px 6px;
+    min-height: 44px;
+    font-size: 11px;
+    white-space: normal;
+    text-align: center;
+  }
+  .dashboard-board .pending-whatsapp-action svg {
+    flex-shrink: 0;
+  }
+  /* Receipt cards start with the member, then use a compact two-column summary. */
+  .payment-records tr > td[data-label="Member"] {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    padding: 0 0 8px;
+  }
+  .payment-records td[data-label="Member"]:before {
+    display: none;
+  }
+  .payment-records .member-identity {
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .payment-records tr > td[data-label="Receipt"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .payment-records tr > td[data-label="Amount"] {
+    grid-row: 2;
+    grid-column: 2;
+    align-items: flex-end;
+  }
+  .payment-records tr > td[data-label="Membership period"] {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    padding-block: 4px;
+  }
+  .payment-records td[data-label="Membership period"]:before {
+    display: none;
+  }
+  .payment-records .member-identity-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .payment-records tr > td[data-label="Date"] {
+    grid-row: 4;
+    grid-column: 1;
+  }
+  .payment-records tr > td[data-label="Method"] {
+    grid-row: 4;
+    grid-column: 2;
+    align-items: flex-end;
+  }
+  .payment-records td {
+    padding-block: 6px;
+    gap: 3px;
+  }
+  /* Attendance keeps identity and status together, without large empty rows. */
+  .attendance-member-records tr > td[data-label="Member"] {
+    grid-row: 1;
+    grid-column: 1;
+    padding-bottom: 6px;
+  }
+  .attendance-member-records tr > td[data-label="Status"] {
+    grid-row: 1;
+    grid-column: 2;
+    align-items: flex-end;
+    padding-top: 2px;
+  }
+  .attendance-member-records td[data-label="Status"]:before {
+    display: none;
+  }
+  .attendance-member-records tr > td[data-label="Membership"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .attendance-member-records tr > td[data-label="Expiry"] {
+    grid-row: 2;
+    grid-column: 2;
+    align-items: flex-end;
+  }
+  .attendance-member-records tr > td[data-label="Today"] {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+  }
+  .attendance-member-records td {
+    padding-block: 5px;
+    gap: 3px;
+  }
+  .attendance-member-records .member-cell .avatar {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+  .mini-stats {
+    gap: 14px;
+    padding: 16px;
+  }
+  .mini-stats > span {
+    min-width: 0;
+  }
+  .mini-stats > span:last-of-type:nth-of-type(3) {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .modal:has(.print-receipt) {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+  .modal:has(.print-receipt) > .modal-heading {
+    flex: 0 0 auto;
+    padding: 16px;
+  }
+  .modal > .print-receipt {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 16px;
+  }
+  .modal:has(.print-receipt) > .form-actions {
+    position: static;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    gap: 8px;
+    margin: 0;
+  }
+  .modal:has(.print-receipt) > .form-actions > * {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    text-align: center;
+  }
+  .modal:has(.print-receipt) > .form-actions > .danger-button {
+    grid-column: 1 / -1;
+  }
+  .receipt-brand h2 {
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .print-receipt dl {
+    grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+    gap: 12px;
+  }
+  .print-receipt dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .record-scroll:has(.attendance-entry) {
+    max-height: none;
+    overflow: visible;
+  }
+  .list-item.attendance-entry {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+    padding: 16px;
+  }
+  .attendance-entry > .avatar {
+    grid-column: 1;
+    grid-row: 1;
+    width: 40px;
+    height: 40px;
+  }
+  .attendance-entry > div:not(.visit-checkout) {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .attendance-entry > span {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .attendance-entry > .visit-checkout {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+    margin: 0;
+  }
+  .attendance-entry > .small-button {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+    min-height: 42px;
+    margin: 0;
+  }
+  .attendance-entry .visit-checkout button {
+    min-height: 42px;
+    min-width: 110px;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .mini-stats.attendance-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+  .mini-stats.attendance-summary > span,
+  .mini-stats.attendance-summary > span:last-of-type:nth-of-type(3) {
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .mini-stats.attendance-summary > span b {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .mini-stats.attendance-summary > button {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .mini-stats.fees-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 16px 12px;
+  }
+  .mini-stats.fees-summary > span,
+  .mini-stats.fees-summary > span:last-of-type:nth-of-type(3) {
+    grid-column: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .mini-stats.fees-summary > span b {
+    font-size: clamp(15px, 4.3vw, 20px);
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .toolbar > .payment-history-export {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .settings-card .record-scroll[aria-label="Membership plans"],
+  .settings-card .record-scroll[aria-label="Staff accounts"] {
+    max-height: none;
+    overflow: visible;
+  }
+  .settings-card .panel-header {
+    align-items: center;
+  }
+  .settings-card .panel-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 15px;
+  }
+  .settings-card .panel-header > button {
+    flex-shrink: 0;
+    min-height: 42px;
+    font-size: 12px;
+  }
+  .settings-card dl {
+    padding: 0 16px 16px;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .settings-card dt {
+    margin: 12px 0 0;
+    font-size: 11px;
+  }
+  .settings-card dd {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .settings-card [aria-label="Membership plans"] .list-item {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .settings-card [aria-label="Membership plans"] .list-icon {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .settings-card [aria-label="Membership plans"] .list-item > div {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .settings-card [aria-label="Membership plans"] .list-item > strong {
+    grid-column: 3;
+    grid-row: 1;
+    margin: 0;
+  }
+  .settings-card [aria-label="Membership plans"] .list-item > button {
+    min-height: 42px;
+    width: 100%;
+    font-size: 12px;
+    margin: 0;
+  }
+  .settings-card
+    [aria-label="Membership plans"]
+    .list-item
+    > button:first-of-type {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+  .settings-card
+    [aria-label="Membership plans"]
+    .list-item
+    > button:last-of-type {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .settings-card [aria-label="Staff accounts"] .list-item {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+  .settings-card [aria-label="Staff accounts"] .list-item > div {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .settings-card [aria-label="Staff accounts"] strong {
+    overflow-wrap: anywhere;
+  }
+  .settings-card [aria-label="Staff accounts"] select {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+  .settings-card [aria-label="Staff accounts"] button {
+    width: 100%;
+    min-height: 42px;
+    margin: 0;
+    font-size: 12px;
+  }
+  .settings-card [aria-label="Staff accounts"] button:first-of-type {
+    grid-column: 1 / -1;
+  }
+  .settings-card [aria-label="Staff accounts"] button:last-of-type {
+    grid-column: 1 / -1;
+  }
+  .settings-card .staff-add {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .settings-card .staff-add > * {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+  }
+  .settings-card > .helper {
+    margin: 0;
+    padding: 0 16px 16px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .settings-card .integration-grid {
+    padding: 0 16px 16px;
+    gap: 12px;
+  }
+  .settings-card .integration-grid > div {
+    padding: 16px;
+    min-width: 0;
+  }
+}
+@media screen and (max-width: 600px) {
+  .settings-card [aria-label="Staff accounts"] .list-item {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .settings-card [aria-label="Staff accounts"] .list-icon {
+    grid-column: 1 / 3;
+  }
+  .settings-card [aria-label="Staff accounts"] .list-item > div {
+    grid-column: 3 / -1;
+  }
+  .settings-card [aria-label="Staff accounts"] button:first-of-type {
+    grid-column: 1 / 7;
+  }
+  .settings-card [aria-label="Staff accounts"] button:last-of-type {
+    grid-column: 7 / -1;
+  }
+}
+
+/* Compact phone density: reduce whitespace while preserving readable controls. */
+@media screen and (max-width: 600px) {
+  .panel {
+    border-radius: 12px;
+  }
+  .panel-header {
+    padding: 12px;
+    gap: 8px;
+  }
+  .panel-header h2 {
+    font-size: 15px;
+  }
+  .toolbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .panel:not(.members-directory) .table-scroll {
+    padding: 0 8px 8px;
+  }
+  .panel:not(.members-directory) .table-scroll tr,
+  .members-directory .table-scroll tr {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+  }
+  .table-scroll td {
+    padding-block: 5px;
+    gap: 3px;
+  }
+  .list-item {
+    padding: 12px;
+    gap: 8px;
+  }
+  .list-item .avatar,
+  .member-cell .avatar {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+  .members-directory .member-cell {
+    gap: 8px;
+  }
+  .members-directory .member-cell .avatar {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+  .members-directory .table-scroll td[data-label="Membership"],
+  .members-directory .table-scroll td[data-label="Balance"] {
+    padding-left: 44px;
+  }
+  .members-directory .table-scroll td.row-action {
+    padding-top: 8px;
+  }
+  .members-directory .table-scroll td.row-action > button {
+    height: 44px;
+    min-height: 44px;
+  }
+  .pagination {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .dashboard-board {
+    gap: 12px;
+  }
+  .dashboard-workspace .dashboard-metrics {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .dashboard-workspace .dashboard-metrics > .stat {
+    padding: 12px;
+    min-height: 132px;
+  }
+  .dashboard-workspace .dashboard-metrics .stat > strong {
+    font-size: 24px;
+    margin-block: 8px 4px;
+  }
+  .dashboard-workspace .dashboard-metrics .stat > small {
+    line-height: 1.5;
+  }
+  .dashboard-workspace .dashboard-metrics > .movement-metric {
+    min-height: 116px;
+  }
+  .dashboard-workspace .movement-metric .movement-card strong {
+    font-size: 24px;
+  }
+  .dashboard-board .quick-action-grid {
+    padding: 0 12px 12px;
+    gap: 8px;
+  }
+  .dashboard-board .quick-action-tile {
+    min-height: 104px;
+    padding: 12px;
+    gap: 5px;
+  }
+  .dashboard-board .quick-action-tile strong {
+    font-size: 13px;
+  }
+  .dashboard-board .quick-action-tile small {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .dashboard-board .pending-whatsapp-row {
+    padding: 12px;
+    gap: 8px;
+    min-height: 0;
+  }
+  .dashboard-board .pending-whatsapp-row > .list-item-button {
+    min-height: 44px;
+    gap: 8px;
+  }
+  .dashboard-board .pending-whatsapp-row .avatar {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+  .dashboard-board .distribution-body {
+    padding: 12px;
+    gap: 12px;
+  }
+  .dashboard-board .distribution-donut {
+    width: 132px;
+    height: 132px;
+    flex-basis: auto;
+  }
+  .mini-stats.attendance-summary,
+  .mini-stats.fees-summary {
+    padding: 12px;
+    gap: 10px;
+  }
+  .list-item.attendance-entry {
+    padding: 12px;
+    gap: 8px;
+  }
+  .settings-card .panel-header {
+    padding: 12px;
+  }
+  .settings-card dl,
+  .settings-card .integration-grid {
+    padding: 0 12px 12px;
+  }
+  .settings-card dt {
+    margin-top: 8px;
+  }
+  .settings-card .integration-grid > div {
+    padding: 12px;
+  }
+  .settings-card .staff-add {
+    padding: 12px;
+    gap: 8px;
+  }
+  .settings-card > .helper {
+    padding: 0 12px 12px;
+  }
+  .modal:has(.print-receipt) > .modal-heading {
+    padding: 12px;
+  }
+  .modal > .print-receipt {
+    padding: 14px 12px;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .profile-summary.panel {
+    padding: 14px;
+    gap: 10px;
+  }
+  .profile-summary > .avatar {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .profile-summary h2 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .profile-summary p {
+    margin-block: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .profile-summary small {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .profile-summary .profile-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .profile-summary .profile-actions > .primary {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 44px;
+  }
+  .profile-summary .profile-actions > .secondary {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    min-height: 44px;
+  }
+  .profile-summary .profile-actions > .profile-more {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .profile-summary .profile-more summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .profile-tabs {
+    margin-block: 12px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .profile-tabs > button {
+    padding: 8px;
+    font-size: 12px;
+    flex: 1;
+  }
+  .profile-overview .profile-overview-cards {
+    gap: 8px;
+  }
+  .profile-overview .overview-card {
+    min-height: 76px;
+    padding: 12px;
+    gap: 10px;
+  }
+  .profile-overview .overview-card > span {
+    gap: 3px;
+  }
+  .profile-overview .overview-card strong {
+    font-size: 14px;
+  }
+  .profile-overview .overview-card small {
+    font-size: 11px;
+  }
+  .profile-overview .empty {
+    min-height: 80px;
+    padding: 12px;
+    gap: 8px;
+  }
+  .profile-overview .empty svg {
+    width: 22px;
+    height: 22px;
+  }
+  .profile-overview .empty p {
+    margin: 0;
+    font-size: 12px;
+  }
+}
+@media screen and (max-width: 600px) {
+  .profile-summary > .avatar {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 50%;
+    justify-self: start;
+  }
+}
+
+/* Mobile navigation cards use the existing accessible open button as a full-card target. */
+@media screen and (max-width: 600px) {
+  .search {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    min-height: 44px;
+  }
+  .search > svg {
+    flex: 0 0 18px;
+    margin: 0;
+  }
+  .search > input {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 0;
+    border: 0;
+    background: transparent;
+  }
+  .search:focus-within {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+  }
+  .search > input:focus {
+    outline: none;
+    box-shadow: none;
+  }
+  .members-directory .table-scroll tr,
+  .payment-records tr {
+    position: relative;
+  }
+  .members-directory .table-scroll td.row-action,
+  .panel .payment-records td.row-action {
+    display: contents;
+  }
+  .members-directory .table-scroll td.row-action > .small-button {
+    display: none;
+  }
+  .members-directory .table-scroll td.row-action > .icon-button,
+  .panel .payment-records td.row-action > .icon-button {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: transparent;
+    box-shadow: none;
+  }
+  .members-directory .table-scroll td.row-action > .icon-button svg,
+  .panel .payment-records td.row-action > .icon-button svg {
+    display: none;
+  }
+  .members-directory .table-scroll td.row-action > .icon-button:after,
+  .panel .payment-records td.row-action > .icon-button:after {
+    content: "";
+    margin: 0;
+  }
+  .members-directory .table-scroll td.row-action > .icon-button:focus-visible,
+  .panel .payment-records td.row-action > .icon-button:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .members-directory .table-scroll tr:active,
+  .payment-records tr:active {
+    background: var(--soft);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .members-directory > .toolbar > .toolbar-actions {
+    display: none;
+  }
+  .members-directory > .toolbar {
+    padding-bottom: 10px;
+  }
+  .members-directory .mobile-member-summary {
+    margin-bottom: 10px;
+  }
+  .members-directory .mobile-member-filters {
+    gap: 8px;
+    padding-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .members-directory .mobile-member-filters::-webkit-scrollbar {
+    display: none;
+  }
+  .members-directory .table-scroll tr {
+    padding: 14px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 10px;
+  }
+  .members-directory .member-cell {
+    align-items: center;
+    gap: 10px;
+  }
+  .members-directory .member-cell .avatar {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+  .members-directory .member-cell strong {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .members-directory .member-cell small {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .members-directory .table-scroll td[data-label="Membership"] {
+    padding: 5px 0 0 50px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .members-directory .table-scroll td[data-label="Balance"] {
+    padding: 5px 0 0 50px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .members-directory .table-scroll td[data-label="Status"] {
+    padding-top: 2px;
+    align-self: start;
+  }
+  .members-directory .table-scroll td[data-label="Status"] .badge {
+    padding: 4px 7px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .members-directory .table-scroll tr:focus-within {
+    border-color: var(--brand);
+  }
+}
+
+/* Compact receipt preview: identity and amount, plan, then payment metadata. */
+@media screen and (max-width: 600px) {
+  .panel .payment-records tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+    gap: 0 10px;
+    border-radius: 14px;
+  }
+  .payment-records tr > td[data-label="Member"] {
+    grid-row: 1;
+    grid-column: 1;
+    padding: 0 0 8px;
+    justify-content: center;
+  }
+  .payment-records .member-identity {
+    gap: 9px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .payment-records .member-identity .avatar {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+  .payment-records tr > td[data-label="Amount"] {
+    grid-row: 1;
+    grid-column: 2;
+    padding: 0 0 8px;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .payment-records td[data-label="Amount"]:before {
+    display: none;
+  }
+  .payment-records td[data-label="Amount"] strong {
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.4px;
+  }
+  .payment-records tr > td[data-label="Membership period"] {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    padding: 0 0 10px 45px;
+  }
+  .payment-records .member-identity-copy {
+    gap: 2px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .payment-records .member-identity-copy small {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .payment-records tr > td[data-label="Receipt"] {
+    grid-row: 3;
+    grid-column: 1;
+    padding: 9px 0 0;
+    border-top: 1px solid var(--line) !important;
+    gap: 3px;
+  }
+  .payment-records td[data-label="Receipt"]:before {
+    display: none;
+  }
+  .payment-records td[data-label="Receipt"] .receipt-number {
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .payment-records tr > td[data-label="Date"] {
+    grid-row: 4;
+    grid-column: 1;
+    padding: 2px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .payment-records td[data-label="Date"]:before {
+    display: none;
+  }
+  .payment-records tr > td[data-label="Method"] {
+    grid-row: 3 / 5;
+    grid-column: 2;
+    padding: 9px 0 0;
+    border-top: 1px solid var(--line) !important;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .payment-records td[data-label="Method"]:before {
+    display: none;
+  }
+  .payment-records td[data-label="Method"] .badge {
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 6px;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .payment-records tr > td[data-label="Date"] {
+    display: none;
+  }
+  .payment-records tr > td[data-label="Membership period"] {
+    padding-bottom: 6px;
+  }
+  .payment-records tr > td[data-label="Receipt"] {
+    padding: 2px 0 0 45px;
+    border-top: 0 !important;
+  }
+  .payment-records tr > td[data-label="Method"] {
+    grid-row: 3;
+    padding: 2px 0 0;
+    border-top: 0 !important;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .payment-records tr > td[data-label="Member"] {
+    padding-bottom: 2px;
+  }
+  .payment-records tr > td[data-label="Amount"] {
+    padding-bottom: 2px;
+  }
+  .payment-records tr > td[data-label="Receipt"] {
+    grid-row: 2;
+    grid-column: 1;
+    padding: 0 0 6px 45px;
+  }
+  .payment-records tr > td[data-label="Method"] {
+    grid-row: 2;
+    grid-column: 2;
+    padding: 0 0 6px;
+    justify-content: flex-start;
+  }
+  .payment-records tr > td[data-label="Membership period"] {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    padding: 2px 0 0 45px;
+  }
+}
+
+/* Member identity on the left; membership and payment state on the right. */
+@media screen and (max-width: 600px) {
+  .members-directory .table-scroll tr {
+    column-gap: 12px;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px #00000003;
+  }
+  .members-directory .table-scroll td[data-label="Member"] {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  .members-directory .table-scroll td[data-label="Status"] {
+    grid-row: 1;
+    grid-column: 2;
+    padding-top: 2px;
+  }
+  .members-directory .table-scroll td[data-label="Membership"] {
+    grid-row: 2;
+    grid-column: 1;
+    padding: 5px 0 0 50px;
+  }
+  .members-directory .table-scroll td[data-label="Balance"] {
+    grid-row: 2;
+    grid-column: 2;
+    padding: 5px 0 0;
+    align-items: flex-end;
+    text-align: right;
+    font-size: 11px;
+  }
+  .members-directory
+    .table-scroll
+    td[data-label="Balance"]
+    > span:not(.amount-due) {
+    color: #25927c;
+    font-weight: 500;
+  }
+  .members-directory .table-scroll td[data-label="Balance"] > .amount-due {
+    font-weight: 600;
+  }
+}
+
+/* Center mobile fee and attendance summary values within equal columns. */
+@media screen and (max-width: 600px) {
+  .mini-stats.fees-summary > span,
+  .mini-stats.fees-summary > span:last-of-type:nth-of-type(3),
+  .mini-stats.attendance-summary > span,
+  .mini-stats.attendance-summary > span:last-of-type:nth-of-type(3) {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .page-heading.compact-mobile-heading {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .page-heading.compact-mobile-heading > div:first-child {
+    min-width: 0;
+  }
+  .page-heading.compact-mobile-heading .heading-actions {
+    width: auto;
+    flex: 0 0 auto;
+    margin: 0;
+  }
+  .page-heading.compact-mobile-heading .heading-actions > .primary {
+    width: auto;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 12px;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .page-heading.compact-mobile-heading .heading-actions > .primary svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Status chips replace the Members status dropdown on every screen. */
+.members-directory {
+  display: flex;
+  flex-direction: column;
+}
+.members-directory > .toolbar {
+  order: 1;
+}
+.members-directory > .mobile-member-summary {
+  order: 0;
+}
+.members-directory > .mobile-member-filters {
+  order: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px 16px;
+}
+.members-directory
+  > :not(.toolbar):not(.mobile-member-summary):not(.mobile-member-filters) {
+  order: 3;
+}
+.members-directory .mobile-member-filters button {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 9px 14px;
+  min-height: 42px;
+  font-size: 12px;
+}
+.members-directory .mobile-member-filters button.selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
+.members-directory .mobile-member-filters button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+@media screen and (max-width: 600px) {
+  .members-directory > .mobile-member-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 0 12px;
+  }
+}
+
+.members-directory > .toolbar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.members-directory > .toolbar > .search {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.members-directory .toolbar > .mobile-member-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  order: 0;
+}
+@media screen and (max-width: 600px) {
+  .members-directory > .toolbar {
+    padding: 0 0 12px;
+  }
+  .members-directory > .toolbar > .search {
+    flex-basis: 100%;
+  }
+  .members-directory .toolbar > .mobile-member-filters {
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    padding: 0;
+  }
+}
+
+.member-expiry-countdown {
+  display: none;
+}
+@media screen and (max-width: 600px) {
+  .members-directory .member-expiry-countdown {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+    margin-top: 3px;
+  }
+}
+
+/* Separate membership dates from their countdown. */
+.table-scroll td[data-label="Expiry"] > small {
+  display: block;
+  margin-top: 6px;
+}
+.membership-history-entry > div > small + small {
+  display: block;
+  margin-top: 6px;
+}
+.profile-overview .overview-card small {
+  line-height: 1.7;
+}
+
+.expiry-countdown-spaced {
+  display: inline-block;
+  margin-left: 12px;
+}
+
+@media screen and (min-width: 601px) {
+  .members-directory .toolbar > .mobile-member-filters {
+    order: -1;
+    justify-content: flex-start;
+  }
+}
+@media screen and (max-width: 600px) {
+  .members-directory .toolbar > .mobile-member-filters {
+    justify-content: flex-start;
+  }
+}
+
+@media screen and (min-width: 601px) {
+  .members-directory > .toolbar > .search {
+    flex: 0 1 340px;
+  }
+  .members-directory .toolbar > .mobile-member-filters {
+    order: 0;
+    margin-left: 0;
+  }
+}
+
+@media screen and (min-width: 601px) {
+  .members-directory > .toolbar {
+    justify-content: flex-start;
+    column-gap: 12px;
+  }
+  .members-directory .toolbar > .mobile-member-filters {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    justify-content: flex-start;
+  }
+  .members-directory > .toolbar > .toolbar-actions {
+    margin-left: auto;
+  }
+}
+
+@media screen and (min-width: 601px) {
+  .members-directory table th:nth-last-child(2),
+  .members-directory table td[data-label="Status"] {
+    width: 1%;
+    white-space: nowrap;
+    padding-right: 8px;
+  }
+  .members-directory table th:last-child,
+  .members-directory table td.row-action {
+    width: 1%;
+    white-space: nowrap;
+    padding-left: 4px;
+  }
+  .members-directory table td.row-action {
+    text-align: left;
+  }
+  .members-directory table td.row-action .small-button {
+    margin-left: 0;
+  }
+}
+
+.member-birth-age {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(80px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.member-birth-age > label {
+  min-width: 0;
+}
+.member-age-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.member-age-field output {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  box-sizing: border-box;
+}
+
+.gender-options {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.gender-options legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.gender-options > div {
+  display: flex;
+  gap: 8px;
+}
+.gender-options label {
+  position: relative;
+  flex: 1;
+  margin: 0;
+  cursor: pointer;
+}
+.gender-options input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+}
+.gender-options label span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.gender-options input:checked + span {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--soft);
+  font-weight: 600;
+}
+.gender-options input:focus-visible + span {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.member-basic-fields .member-gender-address {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.member-gender-address .gender-options {
+  width: 100%;
+  max-width: 280px;
+}
+.member-gender-address .gender-options > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.member-gender-address .gender-options label {
+  display: block;
+}
+.member-gender-address .gender-options legend {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.member-gender-address .gender-options label span {
+  min-height: 44px;
+}
+.member-gender-address .member-address-field {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+.member-gender-address .member-address-field textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+/* Reference-inspired registration layout; current fields and workflow are retained. */
+.registration-reference-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.registration-reference-layout .registration-main {
+  gap: 16px;
+}
+.registration-reference-layout .registration-card {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 20px;
+}
+.registration-reference-layout .registration-card h3 {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.registration-reference-layout .registration-summary {
+  position: static;
+}
+@media screen and (min-width: 761px) {
+  .registration-reference-layout .registration-basic {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 180px;
+    gap: 16px 20px;
+    align-items: start;
+  }
+  .registration-reference-layout .registration-basic > h3 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    margin: 0;
+  }
+  .registration-reference-layout .registration-basic > .member-photo {
+    grid-column: 3;
+    grid-row: 2 / 5;
+    align-self: stretch;
+    margin: 0;
+    padding: 12px;
+  }
+  .registration-reference-layout .registration-basic .member-photo-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .registration-reference-layout .registration-basic .member-photo-preview {
+    width: 88px;
+    height: 88px;
+  }
+  .registration-reference-layout .registration-basic > .form-grid {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .registration-reference-layout .registration-basic .member-name-field {
+    grid-column: auto;
+  }
+  .registration-reference-layout .registration-basic > label {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .registration-reference-layout .registration-basic > .member-birth-age {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .registration-reference-layout .registration-basic > .member-basic-fields {
+    grid-column: 1 / 3;
+    grid-row: 4;
+  }
+  .registration-reference-layout .member-gender-address {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .registration-reference-layout .member-gender-address .gender-options {
+    max-width: none;
+  }
+  .registration-reference-layout
+    .registration-main
+    > .registration-card:not(.registration-basic)
+    > .form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .registration-reference-layout .registration-summary dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
+  }
+}
+@media screen and (max-width: 760px) {
+  .registration-reference-layout .registration-card {
+    padding: 14px;
+  }
+  .registration-reference-layout .registration-basic {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .registration-reference-layout .registration-basic > * {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .registration-reference-layout .registration-basic > .member-photo {
+    margin: 0;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--soft);
+  }
+  .registration-reference-layout .registration-basic .member-photo-row {
+    flex-direction: row;
+    gap: 12px;
+  }
+  .registration-reference-layout .registration-basic .member-photo-preview {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+  }
+}
+
+/* Screen receipt layout; printed receipt styling stays unchanged. */
+@media screen {
+  .modal:has(.print-receipt) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: calc(100dvh - 32px);
+  }
+  .modal:has(.print-receipt) > .modal-heading {
+    flex: 0 0 auto;
+    padding: 18px 24px;
+  }
+  .modal > .print-receipt {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 20px 24px;
+  }
+  .print-receipt .receipt-brand {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 3px 16px;
+    align-items: center;
+    text-align: left;
+    padding-bottom: 18px;
+  }
+  .print-receipt .receipt-brand .receipt-logo {
+    grid-column: 1;
+    grid-row: 1 / 5;
+    width: 64px;
+    height: 64px;
+    margin: 0;
+  }
+  .print-receipt .receipt-brand h2 {
+    grid-column: 2;
+    margin: 0 0 3px;
+    font-size: 18px;
+    line-height: 1.4;
+  }
+  .print-receipt .receipt-brand p {
+    grid-column: 2;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .print-receipt .receipt-title {
+    padding-block: 10px;
+  }
+  .print-receipt dl {
+    display: grid;
+    grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.2fr);
+    gap: 12px 16px;
+    margin: 0 0 14px;
+    padding: 16px 0;
+    align-items: center;
+  }
+  .print-receipt dt {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .print-receipt dd {
+    margin: 0;
+    text-align: right;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .print-receipt dd.member-identity {
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .print-receipt .receipt-total {
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
+  .print-receipt .receipt-thanks {
+    margin: 14px 0 0;
+    font-size: 12px;
+  }
+  .modal:has(.print-receipt) > .receipt-actions {
+    position: static;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 14px 24px;
+    gap: 8px;
+    margin: 0;
+    border-top: 1px solid var(--line);
+  }
+  .modal:has(.print-receipt) > .receipt-actions > * {
+    grid-column: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+    white-space: normal;
+  }
+  .receipt-actions svg {
+    flex-shrink: 0;
+  }
+}
+@media screen and (max-width: 600px) {
+  .modal:has(.print-receipt) > .modal-heading {
+    padding: 14px 16px;
+  }
+  .modal > .print-receipt {
+    padding: 16px;
+  }
+  .print-receipt .receipt-brand {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 3px 12px;
+  }
+  .print-receipt .receipt-brand .receipt-logo {
+    width: 52px;
+    height: 52px;
+  }
+  .print-receipt .receipt-brand h2 {
+    font-size: 16px;
+  }
+  .modal:has(.print-receipt) > .receipt-actions {
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+@media screen {
+  .modal:has(.print-receipt) > .receipt-actions > .danger-button {
+    grid-column: auto;
+  }
+}
+
+/* Labeled doughnut with a compact reference-style legend. */
+.labeled-plan-distribution .distribution-body {
+  gap: 20px;
+  padding: 8px 20px 20px;
+}
+.labeled-plan-distribution .distribution-donut {
+  width: 250px;
+  height: 250px;
+  flex: 0 0 250px;
+}
+.labeled-plan-distribution .distribution-donut svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.labeled-plan-distribution .distribution-percentage {
+  fill: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+.labeled-plan-distribution circle[role="button"] {
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+.labeled-plan-distribution circle[role="button"]:hover {
+  opacity: 0.8;
+}
+.labeled-plan-distribution circle[role="button"]:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 2px var(--ink));
+}
+.labeled-plan-distribution .distribution-donut > div {
+  pointer-events: none;
+}
+.labeled-plan-distribution .distribution-donut strong {
+  font-size: 28px;
+  font-weight: 600;
+}
+.labeled-plan-distribution .distribution-donut span {
+  font-size: 12px;
+}
+.labeled-plan-distribution .distribution-legend {
+  flex: 1;
+  min-width: 0;
+}
+.labeled-plan-distribution .distribution-dot {
+  border-radius: 2px;
+  width: 10px;
+  height: 10px;
+}
+.labeled-plan-distribution .distribution-legend button {
+  padding: 12px 0;
+  gap: 8px;
+}
+@media (max-width: 1400px) {
+  .labeled-plan-distribution .distribution-body {
+    flex-direction: column;
+  }
+  .labeled-plan-distribution .distribution-legend {
+    width: 100%;
+  }
+}
+@media screen and (max-width: 600px) {
+  .dashboard-board .labeled-plan-distribution .distribution-body {
+    gap: 8px;
+    padding: 0 14px 14px;
+  }
+  .dashboard-board .labeled-plan-distribution .distribution-donut {
+    width: 220px;
+    height: 220px;
+    flex: 0 0 auto;
+  }
+  .labeled-plan-distribution .distribution-legend button {
+    padding: 10px 0;
+  }
+}

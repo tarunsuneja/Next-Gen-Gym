@@ -15,6 +15,8 @@ try {
       errors = [],
       writes = [],
       requests = new Map();
+    data.memberships.find((s) => s.memberId === data.members[0].id).end =
+      shiftDay(today(), 3);
     let failNext = false,
       failReload = false;
     page.on("pageerror", (e) => errors.push(e.message));
@@ -195,9 +197,7 @@ try {
       await close();
     }
     await nav("Fees & receipts");
-    await page
-      .getByRole("button", { name: "Collect payment", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Collect payment", exact: true }).click();
     assert(
       await page
         .getByRole("button", { name: "Receive full payment", exact: true })
@@ -216,7 +216,7 @@ try {
       0,
     );
     await page
-      .getByRole("button", { name: "Buy / renew membership", exact: true })
+      .getByRole("button", { name: "Extend membership", exact: true })
       .click();
     const member = data.members[0],
       previous = data.memberships.find((s) => s.memberId === member.id);
@@ -245,10 +245,7 @@ try {
     await page
       .getByLabel("Payment method", { exact: true })
       .selectOption("UPI");
-    await page
-      .getByRole("button", { name: "Receive full payment", exact: true })
-      .click();
-    assert.equal(writes.length, 0, "Missing reference must block submission");
+    assert.equal(await page.getByLabel("Transaction reference", { exact: true }).getAttribute("required"), null, "Digital payment reference is optional");
     await page
       .getByLabel("Transaction reference", { exact: true })
       .fill("UPI-CHECKOUT-001");
@@ -264,7 +261,7 @@ try {
         await page.getByLabel("Search member", { exact: true }).fill("Arjun");
         await page.locator(".checkout-results button").first().click();
         await page
-          .getByRole("button", { name: "Buy / renew membership", exact: true })
+          .getByRole("button", { name: "Extend membership", exact: true })
           .click();
       }
       assert(
@@ -290,7 +287,7 @@ try {
       .selectOption("UPI");
     await page
       .getByLabel("Transaction reference", { exact: true })
-      .fill("UPI-CHECKOUT-001");
+      .fill("");
     await page
       .getByRole("button", { name: "Receive full payment", exact: true })
       .click();
@@ -306,7 +303,7 @@ try {
     await page.locator(".checkout-results button").first().click();
     assert.equal(
       await page
-        .getByRole("button", { name: "Clear existing balance", exact: true })
+        .getByRole("button", { name: "Collect pending fee", exact: true })
         .getAttribute("aria-pressed"),
       "true",
     );
@@ -322,7 +319,7 @@ try {
     await receipt();
     assert.equal(writes.at(-1).action_type, "payment");
     assert.equal(writes.at(-1).payload.amount, 70000);
-    // A profile with a fully paid membership can renew immediately.
+    // Once extended, the paid membership cannot be bought again through collection.
     await nav("Members");
     await page
       .getByRole("textbox", { name: "Search name, phone or member ID" })
@@ -330,26 +327,29 @@ try {
     await page
       .getByRole("button", { name: "Open Arjun Mehta", exact: true })
       .click();
+    assert.equal(
+      await page.getByRole("button", { name: "Renew", exact: true }).count(),
+      0,
+    );
+    assert(await page.getByRole("button", { name: "Collect payment", exact: true }).isDisabled());
+    await nav("Fees & receipts");
+    await page
+      .getByRole("button", { name: "Collect payment", exact: true })
+      .click();
+    await page.getByLabel("Search member", { exact: true }).fill("Arjun");
+    await page.locator(".checkout-results button").first().click();
     assert(
       await page
-        .getByRole("button", { name: "Collect payment", exact: true })
+        .getByRole("button", { name: "Receive full payment", exact: true })
         .isDisabled(),
     );
-    await page.getByRole("button", { name: "Renew", exact: true }).click();
-    const newest = data.memberships
-      .filter((s) => s.memberId === member.id)
-      .sort((a, b) => b.end.localeCompare(a.end))[0];
     assert.equal(
-      await page.getByLabel("Start date", { exact: true }).inputValue(),
-      shiftDay(newest.end, 1),
+      await page
+        .getByRole("button", { name: "Extend membership", exact: true })
+        .count(),
+      0,
     );
-    await page
-      .getByRole("button", {
-        name: "Complete membership & payment",
-        exact: true,
-      })
-      .click();
-    await receipt();
+    await close();
     // One registration submission carries member + membership + full payment; a retry preserves entered values.
     await nav("Dashboard");
     await page.getByRole("button", { name: "Add member", exact: true }).click();
@@ -419,8 +419,8 @@ try {
         .fill(deferred ? today() : shiftDay(today(), 3));
       if (deferred) {
         await page
-          .getByLabel("Payment status", { exact: true })
-          .selectOption("later");
+          .getByRole("radio", { name: "Pay later", exact: true })
+          .check();
         await page
           .getByLabel("Payment due date", { exact: true })
           .fill(shiftDay(today(), 3));
@@ -446,17 +446,13 @@ try {
         await close();
         const deferredMember = data.members.find((m) => m.name === name);
         await nav("Dashboard");
+        await page.getByRole("button", { name: "View pending fees", exact: true }).click();
         await page
           .getByLabel("Search pending payments", { exact: true })
           .fill(name);
-        const pendingPanel = page.locator(".pending-fees-panel");
-        assert.equal(
-          await pendingPanel.locator(".pending-whatsapp-row").count(),
-          1,
-        );
-        await pendingPanel
-          .getByRole("button", { name: `Open ${name}`, exact: true })
-          .click();
+        const pendingPanel = page.locator(".pending-payments-panel");
+        assert.equal(await pendingPanel.locator("tbody tr").count(), 1);
+        await page.screenshot({ path: `tests/artifacts/checkout/pending-payments-${width}.png`, fullPage: true, animations: "disabled" });
         const originalPeriod = {
           ...data.memberships.find((s) => s.memberId === deferredMember.id),
         };
@@ -464,9 +460,17 @@ try {
           data.payments.filter((p) => p.memberId === deferredMember.id).length,
           0,
         );
-        await page
-          .getByRole("button", { name: "Collect payment", exact: true })
+        await pendingPanel
+          .getByRole("button", { name: "Collect Payment", exact: true })
           .click();
+        assert(
+          await page
+            .getByRole("button", {
+              name: "Extend membership",
+              exact: true,
+            })
+            .isDisabled(),
+        );
         await page
           .getByLabel("Outstanding membership", { exact: true })
           .waitFor();
@@ -484,6 +488,7 @@ try {
           originalPeriod,
         );
         await nav("Dashboard");
+        await page.getByRole("button", { name: "View pending fees", exact: true }).click();
         await page
           .getByLabel("Search pending payments", { exact: true })
           .fill(name);

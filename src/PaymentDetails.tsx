@@ -46,11 +46,11 @@ export function PaymentDetails({ amount }: { amount: number }) {
           <label>
             {method === "Cash"
               ? "Collection note (optional)"
-              : "Transaction reference"}
+              : "Transaction reference (optional)"}
             <input
               key={method}
               name="reference"
-              required={method !== "Cash"}
+              aria-label={method === "Cash" ? "Collection note (optional)" : "Transaction reference"}
               maxLength={150}
               autoComplete="off"
               placeholder={

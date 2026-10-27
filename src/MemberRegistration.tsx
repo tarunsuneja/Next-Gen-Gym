@@ -1,4 +1,5 @@
 import { PaymentDetails } from "./PaymentDetails";
+import { memberAge } from "./shared/memberAge";
 import { useState } from "react";
 import { Users, CalendarDays, CheckCircle2 } from "lucide-react";
 import { MemberPhoto } from "./MemberPhoto";
@@ -15,6 +16,8 @@ export function MemberRegistration({
   busy: boolean;
 }) {
   const t = today();
+  const [dob, setDob] = useState(member?.dob || "");
+  const age = memberAge(dob, t);
   const [planId, setPlanId] = useState(data.plans[0]?.id || "");
   const [enroll, setEnroll] = useState(data.plans.length > 0);
   const [start, setStart] = useState(t);
@@ -36,6 +39,18 @@ export function MemberRegistration({
     pricingError = (e as Error).message;
   }
   const end = start && plan ? expiry(start, plan.months) : "";
+  const joiningField = (
+    <label>
+      Joining date
+      <input
+        name="joined"
+        type="date"
+        required
+        max={t}
+        defaultValue={member?.joined || t}
+      />
+    </label>
+  );
   const basic = (
     <>
       <MemberPhoto initial={member?.photo} disabled={busy} />
@@ -69,16 +84,7 @@ export function MemberRegistration({
           />
         </label>
       </div>
-      <label>
-        Joining date
-        <input
-          name="joined"
-          type="date"
-          required
-          max={t}
-          defaultValue={member?.joined || t}
-        />
-      </label>
+      {member && joiningField}
       <label>
         Email
         <input
@@ -89,76 +95,63 @@ export function MemberRegistration({
           defaultValue={member?.email}
         />
       </label>
-      <label>
-        Date of birth
-        <input
-          type="date"
-          name="dob"
-          max={t}
-          defaultValue={member?.dob || ""}
-        />
-      </label>
-      <section className="member-details-fields">
-        <div className="form-section-title">Additional details</div>
-        <div className="form-grid">
-          <label>
-            Gender
-            <select name="gender" defaultValue={member?.gender || ""}>
-              <option value="">Select gender</option>
-              <option>Male</option>
-              <option>Female</option>
-            </select>
-          </label>
-          <label>
+      <div className="member-birth-age">
+        <label>
+          Date of birth
+          <input
+            type="date"
+            name="dob"
+            max={t}
+            value={dob}
+            onChange={(event) => setDob(event.target.value)}
+            aria-describedby={age !== null ? "member-age" : undefined}
+          />
+        </label>
+        <div className="member-age-field">
+          <span>Age</span>
+          <output id="member-age" aria-live="polite">
+            {age !== null ? `${age} ${age === 1 ? "year" : "years"}` : "—"}
+          </output>
+        </div>
+      </div>
+      <div className="member-basic-fields">
+        <div className="form-grid member-gender-address">
+          <fieldset className="gender-options">
+            <legend>Gender</legend>
+            <div>
+              {["Male", "Female"].map((gender) => (
+                <label key={gender}>
+                  <input
+                    type="radio"
+                    name="gender"
+                    value={gender}
+                    defaultChecked={member?.gender === gender}
+                  />
+                  <span>{gender}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label className="member-address-field">
             Address <span className="optional">optional</span>
-            <input
+            <textarea
               name="address"
+              rows={2}
               maxLength={200}
               defaultValue={member?.address}
               placeholder="House, street, city"
             />
           </label>
         </div>
-        <div className="form-grid">
-          <label>
-            Height (cm)
-            <input
-              name="height"
-              type="number"
-              min={50}
-              max={300}
-              step="0.1"
-              defaultValue={member?.height}
-              placeholder="e.g. 172"
-            />
-          </label>
-          <label>
-            Weight (kg)
-            <input
-              name="weight"
-              type="number"
-              min={10}
-              max={500}
-              step="0.1"
-              defaultValue={member?.weight}
-              placeholder="e.g. 68"
-            />
-          </label>
-        </div>
-        <label>
-          Notes <span className="optional">optional</span>
-          <textarea
-            name="notes"
-            maxLength={1000}
-            defaultValue={member?.notes}
-          />
-        </label>
-      </section>
+        <input type="hidden" name="height" value={member?.height || ""} />
+        <input type="hidden" name="weight" value={member?.weight || ""} />
+        <input type="hidden" name="notes" value={member?.notes || ""} />
+      </div>
     </>
   );
   if (member) return basic;
   return (
-    <div className="registration-layout">
+    <div className="registration-layout registration-reference-layout">
       <div className="registration-main">
         <section className="registration-card registration-basic">
           <h3>
@@ -182,6 +175,7 @@ export function MemberRegistration({
               Add membership
             </label>
           </div>
+          {joiningField}
           {!data.plans.length && (
             <p className="helper">
               Create a plan in Settings to add a membership. You can save this
@@ -278,18 +272,26 @@ export function MemberRegistration({
               )}
               {total > 0 && (
                 <div className="form-grid">
-                  <label>
-                    Payment status
-                    <select
-                      aria-label="Payment status"
-                      name="paymentTiming"
-                      value={paymentTiming}
-                      onChange={(e) => setPaymentTiming(e.target.value)}
-                    >
-                      <option value="received">Payment received</option>
-                      <option value="later">Pay later</option>
-                    </select>
-                  </label>
+                  <fieldset className="gender-options payment-status-options">
+                    <legend>Payment status</legend>
+                    <div>
+                      {[
+                        { value: "received", label: "Payment received" },
+                        { value: "later", label: "Pay later" },
+                      ].map((option) => (
+                        <label key={option.value}>
+                          <input
+                            type="radio"
+                            name="paymentTiming"
+                            value={option.value}
+                            checked={paymentTiming === option.value}
+                            onChange={() => setPaymentTiming(option.value)}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                   {paymentTiming === "later" && (
                     <label>
                       Payment due date

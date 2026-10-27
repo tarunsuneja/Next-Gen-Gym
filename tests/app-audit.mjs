@@ -176,7 +176,8 @@ try {
             failures.push(result);
           }
           results.push(result);
-          if(result.status==='fail'||results.length%10===0)console.log(JSON.stringify({checked:results.length,...result}));
+          if (result.status === "fail" || results.length % 10 === 0)
+            console.log(JSON.stringify({ checked: results.length, ...result }));
         }
       }
     }
@@ -328,7 +329,7 @@ try {
     .join("");
   await writeFile(
     "artifacts/app-audit-latest.html",
-    `<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>NGF app audit</title><style>body{font:15px/1.6 system-ui;max-width:1100px;margin:32px auto;padding:0 20px;color:#29272d;background:#f7f6f7}h1{font-size:26px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:9px 12px;border-bottom:1px solid #e4e1e6}a{color:#b31f31}.note{padding:16px;background:white;border-radius:10px;margin-bottom:20px}</style><h1>NGF — complete app audit</h1><p>23 October 2026 · Desktop, tablet and mobile · Light and dark themes</p><div class="note"><strong>${results.length} page/layout cases · ${failures.length} failures</strong><p>Local data read-only: ${counts?.members || 0} members, ${counts?.memberships || 0} memberships, ${counts?.payments || 0} payments. No gym records changed. Write operations are verified separately using synthetic browser data and the isolated database tests. Actual WhatsApp delivery and payment-provider settlement are outside this audit.</p></div><table><thead><tr><th>Role</th><th>Page</th><th>Width</th><th>Theme</th><th>Result</th><th>Preview</th></tr></thead><tbody>${rows}</tbody></table>`,
+    `<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>NGF app audit</title><style>body{font:15px/1.6 system-ui;max-width:1100px;margin:32px auto;padding:0 20px;color:#29272d;background:#f7f6f7}h1{font-size:26px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:9px 12px;border-bottom:1px solid #e4e1e6}a{color:#b31f31}.note{padding:16px;background:white;border-radius:10px;margin-bottom:20px}</style><h1>NGF — complete app audit</h1><p>${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date())} · Desktop, tablet and mobile · Light and dark themes</p><div class="note"><strong>${results.length} page/layout cases · ${failures.length} failures</strong><p>Local data read-only: ${counts?.members || 0} members, ${counts?.memberships || 0} memberships, ${counts?.payments || 0} payments. No gym records changed. Write operations are verified separately using synthetic browser data and the isolated database tests. Actual WhatsApp delivery and payment-provider settlement are outside this audit.</p></div><table><thead><tr><th>Role</th><th>Page</th><th>Width</th><th>Theme</th><th>Result</th><th>Preview</th></tr></thead><tbody>${rows}</tbody></table>`,
   );
 }
 assert.deepEqual(failures, []);

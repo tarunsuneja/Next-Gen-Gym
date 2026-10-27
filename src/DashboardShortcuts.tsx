@@ -1,7 +1,3 @@
-import { useMemo, useState } from "react";
-import { Paginated } from "./shared/Paginated";
-import { pendingFeeRows } from "./features/dashboard/pendingFees";
-import { WhatsAppLink, dueMessage } from "./WhatsAppActions";
 import {
   UserPlus,
   Wallet,
@@ -9,18 +5,9 @@ import {
   CreditCard,
   ArrowUpRight,
   Lightbulb,
-  Search,
 } from "lucide-react";
 import { MemberAvatar } from "./MemberAvatar";
-import {
-  type Data,
-  type Member,
-  latest,
-  today,
-  shiftDay,
-  date,
-  money,
-} from "./domain";
+import { type Data, type Member, latest, date } from "./domain";
 export function DashboardShortcuts({
   data,
   add,
@@ -32,7 +19,7 @@ export function DashboardShortcuts({
   setup,
   section,
 }: {
-  section: "actions" | "members" | "pending" | "tip";
+  section: "actions" | "members" | "tip";
   data: Data;
   add: () => void;
   collect: () => void;
@@ -42,21 +29,11 @@ export function DashboardShortcuts({
   open: (m: Member) => void;
   setup: () => void;
 }) {
-  const day = today();
-  const [pendingQuery, setPendingQuery] = useState("");
   const recent = [...data.members]
     .sort(
       (a, b) => b.joined.localeCompare(a.joined) || b.id.localeCompare(a.id),
     )
-    .slice(0, 5);
-  const allDebts = useMemo(
-    () => (section === "pending" ? pendingFeeRows(data) : []),
-    [data, section],
-  );
-  const term = pendingQuery.trim().toLowerCase();
-  const debts = allDebts.filter(({ member }) =>
-    `${member.name} ${member.phone} ${member.id}`.toLowerCase().includes(term),
-  );
+    .slice(0, 3);
   const actions = [
     {
       title: "Add new member",
@@ -144,91 +121,6 @@ export function DashboardShortcuts({
           {!recent.length && (
             <div className="empty">
               <p>No members yet.</p>
-            </div>
-          )}
-        </section>
-      )}
-      {section === "pending" && (
-        <section className="panel pending-fees-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Pending fees</h2>
-              <p>{allDebts.length} members with an outstanding balance</p>
-            </div>
-            <button
-              className="text-button"
-              onClick={pending}
-              aria-label="View all pending fees"
-            >
-              View all <ArrowUpRight size={14} />
-            </button>
-          </div>
-          <div className="toolbar">
-            <div className="search">
-              <Search size={18} aria-hidden="true" />
-              <input
-                aria-label="Search pending payments"
-                placeholder="Search member name or phone"
-                value={pendingQuery}
-                onChange={(event) => setPendingQuery(event.target.value)}
-              />
-            </div>
-          </div>
-          <Paginated
-            records={debts}
-            label="pending payments"
-            render={(visible) => (
-              <div
-                className="pending-fees-list"
-                role="region"
-                aria-label="Pending payment members"
-                tabIndex={0}
-              >
-                {visible.map(({ member: m, due, amount }) => {
-                  const status =
-                    due < day
-                      ? "Overdue"
-                      : due === day
-                        ? "Due today"
-                        : due <= shiftDay(day, 7)
-                          ? "Due soon"
-                          : "Upcoming";
-                  return (
-                    <div key={m.id} className="pending-whatsapp-row">
-                      <button
-                        type="button"
-                        className="list-item list-item-button"
-                        onClick={() => open(m)}
-                        aria-label={`Open ${m.name}`}
-                      >
-                        <MemberAvatar name={m.name} photo={m.photo} />
-                        <div>
-                          <strong>{m.name}</strong>
-                          <small>
-                            {date(due)} · {status}
-                          </small>
-                        </div>
-                        <strong>{money(amount)}</strong>
-                      </button>
-                      <div className="pending-whatsapp-action">
-                        <WhatsAppLink
-                          phone={m.phone}
-                          message={dueMessage(data, m)}
-                        >
-                          WhatsApp due
-                        </WhatsAppLink>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          />
-          {!debts.length && (
-            <div className="empty">
-              <p>
-                {term ? "No matching pending members." : "No pending fees."}
-              </p>
             </div>
           )}
         </section>

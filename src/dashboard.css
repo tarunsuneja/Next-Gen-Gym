@@ -1,4 +1,36 @@
 /* Keep dashboard rows compact when message actions are available. */
+.dashboard-board > .birthday-highlights,
+.dashboard-board > .recent-members-panel {
+  order: 0;
+  align-self: stretch;
+}
+.dashboard-board > .birthday-highlights {
+  grid-column: auto;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-board > .birthday-highlights .birthday-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  border: 0;
+  border-radius: inherit;
+}
+.dashboard-board > .birthday-highlights .birthday-empty {
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .dashboard-board > .birthday-highlights,
+  .dashboard-board > .recent-members-panel {
+    grid-column: 1 / -1;
+  }
+}
+.dashboard-board .attention-description {
+  margin: 0;
+  padding: 0 18px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
 .dashboard-board .pending-fees-list {
   max-height: 420px;
   overflow-y: auto;
@@ -261,5 +293,226 @@
   }
   .collections-date {
     font-size: 12px;
+  }
+}
+
+.pending-payments-panel .toolbar-actions { flex-wrap: wrap; }
+.pending-payments-panel td { min-width: 0; }
+
+.dashboard-board > .attention-panel { grid-column: 1 / -1; }
+.dashboard-board .pending-whatsapp-action { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (min-width: 601px) { .dashboard-board .pending-whatsapp-row { grid-template-columns: minmax(0, 1fr); } .dashboard-board .pending-whatsapp-action { padding-left: 51px; } }
+
+/* Preserve dashboard reading order on desktop and mobile. */
+.dashboard-board > .panel { order: 0; }
+
+.dashboard-board > .attention-panel { order: 7; }
+
+/* Temporarily hide Needs Attention; retain the section for later use. */
+.dashboard-board > .attention-panel { display: none; }
+
+/* Temporarily hide the dashboard reminder setup banner. */
+.dashboard-board > .dashboard-reminder-tip { display: none; }
+
+/* Six compact summary cards on laptop and desktop screens. */
+@media (min-width: 1200px) {
+  .dashboard-workspace .dashboard-metrics {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .dashboard-workspace .dashboard-metrics > .stat {
+    grid-column: auto;
+    min-width: 0;
+    min-height: 168px;
+    padding: 14px 12px;
+  }
+  .dashboard-workspace .dashboard-metrics .stat > div > span:first-child,
+  .dashboard-workspace .dashboard-metrics .movement-metric-heading {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .dashboard-workspace .dashboard-metrics .stat-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .dashboard-workspace .dashboard-metrics .stat > strong,
+  .dashboard-workspace .dashboard-metrics .movement-card strong {
+    font-size: clamp(21px, 1.7vw, 28px);
+    letter-spacing: -0.6px;
+  }
+  .dashboard-workspace .dashboard-metrics .stat > small {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .dashboard-workspace .dashboard-metrics .stat-trend {
+    flex-wrap: wrap;
+    font-size: 10px;
+  }
+  .dashboard-workspace .dashboard-metrics .stat-trend em {
+    white-space: normal;
+  }
+  .dashboard-workspace .dashboard-metrics .movement-card span {
+    font-size: 11px;
+    gap: 3px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-workspace .dashboard-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+.mobile-member-summary, .mobile-member-filters { display: none; }
+@media (max-width: 600px) {
+  .members-directory { background: transparent; border: 0; box-shadow: none; overflow: visible; display: flex; flex-direction: column; }
+  .members-directory .mobile-member-summary { display: block; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .members-directory > .toolbar { order: 1; padding: 0 0 12px; border: 0; }
+  .members-directory .mobile-member-summary { order: 0; }
+  .members-directory .mobile-member-filters { order: 2; display: flex; gap: 8px; overflow-x: auto; padding: 0 0 14px; scrollbar-width: thin; }
+  .mobile-member-filters button { flex-shrink: 0; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--muted); padding: 10px 14px; min-height: 42px; font-size: 12px; }
+  .mobile-member-filters button.selected { background: var(--brand); border-color: var(--brand); color: white; }
+  .members-directory > :not(.toolbar):not(.mobile-member-summary):not(.mobile-member-filters) { order: 3; }
+  .members-directory .table-scroll tr { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; margin-bottom: 10px; }
+  .members-directory .table-scroll td[data-label="Member"] { grid-column: 1; grid-row: 1; padding: 0; }
+  .members-directory .member-cell { gap: 10px; }
+  .members-directory .member-cell strong { font-size: 14px; }
+  .members-directory .member-cell small { font-size: 12px; }
+  .members-directory .table-scroll td[data-label="Membership"] { grid-column: 1; grid-row: 2; padding: 0 0 0 53px; font-size: 11px; color: var(--muted); }
+  .members-directory .table-scroll td[data-label="Membership"]:before { display: none; }
+  .members-directory .table-scroll td[data-label="Joining date"], .members-directory .table-scroll td[data-label="Expiry"] { display: none; }
+  .members-directory .table-scroll td[data-label="Status"] { grid-column: 2; grid-row: 1; justify-content: center; padding: 0; }
+  .members-directory .table-scroll td[data-label="Status"]:before { display: none; }
+  .members-directory .table-scroll td[data-label="Balance"] { grid-column: 1; padding: 8px 0 0 53px; font-size: 11px; }
+  .members-directory .table-scroll td[data-label="Balance"]:before { display: none; }
+  .members-directory .table-scroll td.row-action { grid-column: 1 / -1; padding-top: 10px; display: flex; flex-direction: row; justify-content: flex-end; gap: 8px; }
+  .members-directory .row-action .small-button { font-size: 11px; padding: 7px 10px; min-height: 36px; }
+}
+
+/* Consistent mobile member card alignment and action sizing. */
+@media (max-width: 600px) {
+  .members-directory .table-scroll tr { grid-template-columns: minmax(0, 1fr) minmax(72px, auto); gap: 0 10px; padding: 14px; }
+  .members-directory .member-cell { align-items: flex-start; text-align: left; min-width: 0; }
+  .members-directory .member-cell .avatar { flex: 0 0 43px; width: 43px; height: 43px; }
+  .members-directory .member-cell > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .members-directory .member-cell strong { line-height: 1.4; overflow-wrap: anywhere; }
+  .members-directory .member-cell small { line-height: 1.4; white-space: nowrap; }
+  .members-directory .table-scroll td[data-label="Status"] { justify-content: flex-start; align-items: flex-end; padding-top: 2px; }
+  .members-directory .table-scroll td[data-label="Status"] .badge { font-size: 10px; white-space: nowrap; }
+  .members-directory .table-scroll td[data-label="Membership"] { grid-column: 1 / -1; padding-top: 3px; line-height: 1.4; }
+  .members-directory .table-scroll td[data-label="Balance"] { grid-column: 1 / -1; padding-top: 6px; line-height: 1.4; }
+  .members-directory .table-scroll td.row-action { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; padding: 12px 0 0; gap: 8px; }
+  .members-directory .table-scroll td.row-action > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; height: 42px; min-height: 42px; padding: 8px; margin: 0; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+  .members-directory .table-scroll td.row-action > .icon-button:after { white-space: nowrap; }
+  .members-directory .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  .members-directory .toolbar-actions > select { flex: 1 1 100%; width: 100%; order: -1; }
+  .members-directory .toolbar-actions > button { flex: 1; min-height: 40px; }
+  .members-directory .pagination { padding: 12px 0; }
+  .members-directory .table-footer { padding: 12px 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 600px) {
+  .dashboard-board {
+    gap: 14px;
+  }
+  .dashboard-metrics {
+    gap: 10px;
+  }
+  .dashboard-metrics > .stat {
+    padding: 16px 14px;
+  }
+  .dashboard-metrics .stat > strong {
+    font-size: 1.8rem;
+  }
+  .dashboard-grid,
+  .two-column {
+    gap: 14px;
+  }
+  .panel {
+    border-radius: 12px;
+  }
+  .list-item {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .list-item > div:first-child {
+    min-width: 0;
+  }
+  .list-main > span {
+    min-width: 0;
+  }
+  .list-main strong {
+    overflow-wrap: anywhere;
+  }
+  .panel-header {
+    padding: 16px 16px 12px;
+  }
+  .reminder-row {
+    padding: 16px;
+  }
+  .payments-table .table-scroll tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin: 0 0 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .payments-table .table-scroll thead {
+    display: none;
+  }
+  .payments-table .table-scroll tr > td {
+    border: 0;
+    padding: 0;
+    text-align: left !important;
+  }
+  .payments-table .table-scroll td[data-label="Member"] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .payments-table .table-scroll td[data-label="Amount"] {
+    grid-column: 2;
+    grid-row: 1;
+    font-weight: 600;
+  }
+  .payments-table .table-scroll td[data-label="Plan"] {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .payments-table .table-scroll td[data-label="Method"],
+  .payments-table .table-scroll td[data-label="Receipt"],
+  .payments-table .table-scroll td[data-label="Date"],
+  .payments-table .table-scroll td[data-label="Time"] {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .payments-table .table-scroll td[data-label="Method"]:before {
+    content: "Method: ";
+    color: var(--muted);
+  }
+  .payments-table .table-scroll td[data-label="Receipt"]:before {
+    content: "Receipt: ";
+    color: var(--muted);
+  }
+  .payments-table .table-scroll td[data-label="Date"]:before {
+    content: "Date: ";
+    color: var(--muted);
+  }
+  .payments-table .table-scroll td[data-label="Time"]:before {
+    content: "Time: ";
+    color: var(--muted);
+  }
+  .payments-table .table-scroll td.row-action {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
   }
 }

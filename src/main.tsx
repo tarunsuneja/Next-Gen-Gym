@@ -10,6 +10,7 @@ import "./typography.css";
 import "./dashboard.css";
 import "./sidebar.css";
 import "./auth.css";
+import "./mobile.css";
 window.addEventListener("error", (event) => {
   console.error("Uncaught error:", event.error ?? event.message);
 });

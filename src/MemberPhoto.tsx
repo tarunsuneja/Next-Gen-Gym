@@ -19,12 +19,12 @@ export function MemberPhoto({
     const current = ++version.current;
     setError("");
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Choose a JPG, PNG or WebP image.");
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      setError("Choose a JPG or PNG image.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("Choose a photo smaller than 5 MB.");
+      setError("This photo could not be processed. Choose another JPG or PNG.");
       return;
     }
     setLoading(true);
@@ -51,7 +51,11 @@ export function MemberPhoto({
         256,
         256,
       );
-      const result = canvas.toDataURL("image/jpeg", 0.8);
+      let result = canvas.toDataURL("image/jpeg", 0.8);
+      for (const quality of [0.65, 0.5, 0.35]) {
+        if (result.length <= 100000) break;
+        result = canvas.toDataURL("image/jpeg", quality);
+      }
       if (result.length > 100000)
         throw Error("Please choose a simpler or smaller photo.");
       if (current === version.current) setPhoto(result);
@@ -84,7 +88,7 @@ export function MemberPhoto({
             className="photo-file-input"
             aria-label="Upload profile photo"
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png"
             onChange={(e) => void choose(e.target.files?.[0])}
             disabled={loading}
           />
@@ -113,7 +117,7 @@ export function MemberPhoto({
               </button>
             )}
           </div>
-          <small>JPG, PNG or WebP · Max 5 MB</small>
+          <small>JPG or PNG</small>
         </div>
       </div>
       {loading && <p role="status">Preparing photo…</p>}

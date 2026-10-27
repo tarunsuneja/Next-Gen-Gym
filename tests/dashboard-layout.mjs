@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { launch, open, signIn } from "./live-harness.mjs";
 import { seed } from "./fixtures.ts";
-import { pendingFeeRows } from "../src/features/dashboard/pendingFees.ts";
 const browser = await launch();
 try {
   const { page, errors } = await open(browser, { width: 1440, height: 900 });
@@ -257,6 +256,40 @@ try {
       const chartBox = await page.locator(".collection-panel").boundingBox();
       const planBox = await page.locator(".plan-distribution").boundingBox();
       const queueBox = await page.locator(".attention-panel").boundingBox();
+      const recentMembersBox = await page
+        .locator(".recent-members-panel")
+        .boundingBox();
+      const birthdayBox = await page
+        .locator(".birthday-highlights")
+        .boundingBox();
+      if (width > 1100) {
+        assert(
+          Math.abs(recentMembersBox.y - birthdayBox.y) < 2,
+          "Birthday Wishes aligns with Recent Members",
+        );
+        assert(
+          Math.abs(recentMembersBox.height - birthdayBox.height) < 2,
+          "Community cards have equal height",
+        );
+      } else {
+        assert(
+          birthdayBox.y >= recentMembersBox.y + recentMembersBox.height - 1,
+          "Community cards stack on narrow screens",
+        );
+      }
+      assert.equal(
+        await page
+          .locator(".recent-members-panel h2")
+          .evaluate((el) => getComputedStyle(el).textTransform),
+        "capitalize",
+      );
+      assert.equal(
+        await page
+          .locator(".quick-actions-panel .quick-action-tile strong")
+          .first()
+          .evaluate((el) => getComputedStyle(el).textTransform),
+        "capitalize",
+      );
       assert.equal(
         await page.locator(".dashboard-metrics > button").count(),
         5,
@@ -308,13 +341,15 @@ try {
 
   const dashboard = () =>
     page.getByRole("button", { name: "Dashboard", exact: true }).click();
+  assert.equal(await page.locator('.attention-panel input').count(), 0);
+  assert.equal(await page.locator('.dashboard-board > :last-child').getAttribute('class'), 'panel attention-panel');
   assert.equal(
     await page.locator(".recent-members-panel .list-item-button").count(),
-    5,
+    3,
   );
   assert.equal(
     await page.locator(".pending-fees-panel .list-item-button").count(),
-    Math.min(10, pendingFeeRows(fixture).length),
+    5,
   );
   await page
     .getByRole("button", { name: "Add new member", exact: false })
@@ -329,11 +364,12 @@ try {
     .waitFor();
   await page.getByRole("button", { name: "Close dialog", exact: true }).click();
   await page
-    .getByRole("button", { name: "View all pending fees", exact: true })
+    .locator(".quick-actions-panel")
+    .getByRole("button", { name: "View pending fees", exact: false })
     .click();
   assert.equal(
-    await page.getByLabel("Member status filter").inputValue(),
-    "Pending fees",
+    await page.getByRole("tab", { name: "Pending Payments", exact: true }).getAttribute("aria-selected"),
+    "true",
   );
   await dashboard();
   await page
@@ -377,10 +413,12 @@ try {
   await page
     .getByRole("button", { name: "Refresh workspace", exact: true })
     .waitFor({ state: "visible" });
+  assert.equal(await page.locator(".attention-tabs button").filter({ hasText: "Pending payments" }).count(), 0);
+  await page.locator(".attention-tabs button").filter({ hasText: "Members without a plan" }).click();
   const results = page.locator(".attention-results");
   assert.equal(
     await results.locator(".attention-row").count(),
-    8,
+    10,
     "Every matching member must be available",
   );
   assert(
@@ -391,7 +429,7 @@ try {
   assert(await results.evaluate((el) => el.scrollTop > 0));
   await page
     .locator(".attention-tabs button")
-    .filter({ hasText: "Renewals" })
+    .filter({ hasText: "Expiring memberships" })
     .click();
   assert.equal(
     await results.evaluate((el) => el.scrollTop),
@@ -400,7 +438,7 @@ try {
   );
   await page
     .locator(".attention-tabs button")
-    .filter({ hasText: "Payments" })
+    .filter({ hasText: "Members without a plan" })
     .click();
   await page
     .getByRole("button", {
@@ -410,7 +448,7 @@ try {
     .click();
   assert.equal(
     await page.getByLabel("Member status filter").inputValue(),
-    "Attention: Payments",
+    "Attention: Members without a plan",
   );
   await page.getByRole("button", { name: "Dashboard", exact: true }).click();
   await page

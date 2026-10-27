@@ -1,12 +1,12 @@
 import { memo, useMemo } from "react";
 import { type Data, today, frozen } from "./domain";
 const COLORS = [
-  "#d11e3d",
-  "#547db1",
-  "#25927c",
-  "#ba893b",
-  "#9273b1",
-  "#64868f",
+  "#6d28d9",
+  "#1296e8",
+  "#00716f",
+  "#aa1959",
+  "#ff5068",
+  "#a66b12",
 ];
 export const PlanDistribution = memo(function PlanDistribution({
   data,
@@ -45,7 +45,7 @@ export const PlanDistribution = memo(function PlanDistribution({
   }, [data.members, data.memberships, day]);
   let offset = 0;
   return (
-    <section className="panel plan-distribution">
+    <section className="panel plan-distribution labeled-plan-distribution">
       <div className="panel-header">
         <div>
           <h2>Membership plans</h2>
@@ -56,36 +56,67 @@ export const PlanDistribution = memo(function PlanDistribution({
         <div className="distribution-body">
           <div
             className="distribution-donut"
-            role="img"
+            role="group"
             aria-label={`${total} active members across ${entries.length} plans`}
           >
-            <svg viewBox="0 0 160 160" aria-hidden="true">
+            <svg
+              viewBox="0 0 240 240"
+              role="group"
+              aria-label="Membership plan distribution"
+            >
               <circle
-                cx="80"
-                cy="80"
-                r="62"
+                cx="120"
+                cy="120"
+                r="80"
                 fill="none"
                 stroke="var(--line)"
-                strokeWidth="21"
+                strokeWidth="25"
               />
               {entries.map(([name, ids], i) => {
                 const percent = (ids.length / total) * 100;
                 const start = offset;
                 offset += percent;
+                const angle =
+                  ((start + percent / 2) / 100) * Math.PI * 2 - Math.PI / 2;
+                const labelX = 120 + Math.cos(angle) * 105;
+                const labelY = 120 + Math.sin(angle) * 105;
                 return (
-                  <circle
-                    key={name}
-                    cx="80"
-                    cy="80"
-                    r="62"
-                    fill="none"
-                    stroke={COLORS[i % COLORS.length]}
-                    strokeWidth="21"
-                    pathLength="100"
-                    strokeDasharray={`${percent} ${100 - percent}`}
-                    strokeDashoffset={-start}
-                    transform="rotate(-90 80 80)"
-                  />
+                  <g key={name}>
+                    <circle
+                      cx="120"
+                      cy="120"
+                      r="80"
+                      fill="none"
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth="25"
+                      pathLength="100"
+                      strokeDasharray={`${percent} ${100 - percent}`}
+                      strokeDashoffset={-start}
+                      transform="rotate(-90 120 120)"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open ${name}: ${ids.length} members, ${Math.round(percent)} percent`}
+                      onClick={() => open(name, ids)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          open(name, ids);
+                        }
+                      }}
+                    />
+                    {percent >= 4 && (
+                      <text
+                        x={labelX}
+                        y={labelY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        className="distribution-percentage"
+                        aria-hidden="true"
+                      >
+                        {Math.round(percent)}%
+                      </text>
+                    )}
+                  </g>
                 );
               })}
             </svg>

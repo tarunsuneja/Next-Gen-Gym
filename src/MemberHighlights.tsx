@@ -49,8 +49,8 @@ export function MemberHighlights({
               <Cake size={21} />
             </span>
             <div>
-              <h2>Birthdays today</h2>
-              <small>A little wish goes a long way.</small>
+              <h2>Birthday Wishes</h2>
+              <small>Members celebrating today</small>
             </div>
             <span className="birthday-count">{birthdays.length}</span>
           </div>

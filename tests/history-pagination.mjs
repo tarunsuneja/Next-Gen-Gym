@@ -38,6 +38,8 @@ try {
         id: crypto.randomUUID(),
         memberId: member.id,
         amount: 150000,
+        start: "2020-01-01",
+        end: "2020-01-31",
       });
     }
     const visit = data.attendance[0];

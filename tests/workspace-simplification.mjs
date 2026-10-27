@@ -251,16 +251,25 @@ try {
       () => document.querySelectorAll(".attendance-entry").length === 2,
     );
     await screenshot("attendance-inside");
-    const download = page.waitForEvent("download");
-    await page
-      .getByRole("button", { name: "Export inside", exact: true })
-      .click();
-    const csv = await readFile(await (await download).path(), "utf8");
-    assert.equal(
-      csv.trim().split(/\r?\n/).length,
-      3,
-      "inside export has two visible visits plus header",
-    );
+    if (width > 600) {
+      const download = page.waitForEvent("download");
+      await page
+        .getByRole("button", { name: "Export inside", exact: true })
+        .click();
+      const csv = await readFile(await (await download).path(), "utf8");
+      assert.equal(
+        csv.trim().split(/\r?\n/).length,
+        3,
+        "inside export has two visible visits plus header",
+      );
+    } else {
+      assert.equal(
+        await page
+          .getByRole("button", { name: "Export inside", exact: true })
+          .isVisible(),
+        false,
+      );
+    }
     await page.getByRole("tab", { name: "History", exact: true }).click();
     assert.equal(await page.locator(".attendance-entry").count(), 3);
     await screenshot("attendance-history");

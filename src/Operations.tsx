@@ -1,6 +1,11 @@
+import {
+  attentionCategories,
+  attentionDescriptions,
+  attentionGroups,
+  type AttentionCategory,
+} from "./features/dashboard/attention";
 import { Paginated } from "./shared/Paginated";
 import { buildWorkspaceIndex } from "./domain/workspaceIndex";
-import { WhatsAppLink, dueMessage } from "./WhatsAppActions";
 import { MemberAvatar } from "./MemberAvatar";
 import { memo, useMemo, useState } from "react";
 import {
@@ -162,7 +167,6 @@ export const AttentionQueue = memo(function AttentionQueue({
   data,
   open,
   pay,
-  renew,
   viewAll,
   day = today(),
 }: {
@@ -170,46 +174,17 @@ export const AttentionQueue = memo(function AttentionQueue({
   day?: string;
   open: (m: Member) => void;
   pay: (m: Member) => void;
-  renew: (m: Member) => void;
   viewAll: (category: string, ids: string[]) => void;
 }) {
-  const [tab, setTab] = useState("Payments");
+  const [tab, setTab] = useState<AttentionCategory>("Expiring memberships");
   const workspaceIndex = useMemo(() => buildWorkspaceIndex(data), [data]);
-  const categories = ["Payments", "Renewals", "Absent 14+ days"];
-  const groupedRows = useMemo(() => {
-    const rowsFor = (category: string) =>
-      data.members
-        .filter((m) => !m.archived)
-        .filter((m) => {
-          const s = workspaceIndex.latest(m.id);
-          if (category === "Payments") return workspaceIndex.balance(m.id) > 0;
-          if (category === "Renewals")
-            return (
-              !!s &&
-              s.end <= shiftDay(day, 7) &&
-              !(workspaceIndex.memberships.get(m.id) ?? []).some(
-                (x) => !x.cancelled && x.start > day,
-              )
-            );
-          const last = workspaceIndex.lastVisit.get(m.id)?.day;
-          return (
-            !!s &&
-            s.end >= day &&
-            (last ? last < shiftDay(day, -14) : m.joined < shiftDay(day, -14))
-          );
-        })
-        .sort(
-          (a, b) =>
-            (category === "Renewals"
-              ? (workspaceIndex.latest(a.id)?.end || "").localeCompare(
-                  workspaceIndex.latest(b.id)?.end || "",
-                )
-              : workspaceIndex.overdue(b.id) - workspaceIndex.overdue(a.id)) ||
-            workspaceIndex.balance(b.id) - workspaceIndex.balance(a.id),
-        );
-    return new Map(categories.map((category) => [category, rowsFor(category)]));
-  }, [data, workspaceIndex, day]);
-  const rowsFor = (category: string) => groupedRows.get(category) ?? [];
+  const categories = attentionCategories;
+  const groupedRows = useMemo(
+    () => attentionGroups(data, day, workspaceIndex),
+    [data, workspaceIndex, day],
+  );
+  const rowsFor = (category: AttentionCategory) =>
+    groupedRows.get(category) ?? [];
   const rows = rowsFor(tab);
   return (
     <section className="panel attention-panel">
@@ -249,6 +224,9 @@ export const AttentionQueue = memo(function AttentionQueue({
           </button>
         ))}
       </div>
+      <p className="helper attention-description" role="status">
+        {attentionDescriptions[tab]}
+      </p>
       <Paginated
         records={rows}
         label="attention"
@@ -262,16 +240,14 @@ export const AttentionQueue = memo(function AttentionQueue({
           >
             {visibleRows.map((m) => {
               const s = workspaceIndex.latest(m.id);
-              const detail =
-                tab === "Payments"
-                  ? `${money(workspaceIndex.balance(m.id))} pending${workspaceIndex.overdue(m.id) > 0 ? ` · ${money(workspaceIndex.overdue(m.id))} overdue` : ""}`
-                  : tab === "Renewals"
-                    ? `Expiry ${date(s!.end)}`
-                    : `Last visit: ${workspaceIndex.lastVisit.get(m.id)?.day ? date(workspaceIndex.lastVisit.get(m.id)!.day) : "No attendance recorded"}`;
+              const detail = tab === "Members without a plan" ? "No membership plan assigned"
+                : tab === "Expiring memberships" ? `${s!.end < day ? "Expired" : "Expires"} ${date(s!.end)}`
+                : `Last visit: ${workspaceIndex.lastVisit.get(m.id)?.day ? date(workspaceIndex.lastVisit.get(m.id)!.day) : "No attendance recorded"}`;
               return (
                 <div className="attention-row" key={m.id}>
                   <button
                     className="attention-member member-identity"
+                    aria-label={`Open ${m.name}`}
                     onClick={() => open(m)}
                   >
                     <MemberAvatar name={m.name} photo={m.photo} />
@@ -281,30 +257,20 @@ export const AttentionQueue = memo(function AttentionQueue({
                     </span>
                   </button>
                   <div className="attention-actions">
-                    {tab === "Payments" && (
-                      <WhatsAppLink
-                        phone={m.phone}
-                        message={dueMessage(data, m)}
-                      >
-                        WhatsApp due
-                      </WhatsAppLink>
-                    )}
-                    {tab === "Payments" ? (
+                    {tab !== "Absent 14+ days" && (
                       <button className="small-button" onClick={() => pay(m)}>
-                        Collect
+                        {tab === "Members without a plan" ? "Add membership" : "Collect payment"}
                       </button>
-                    ) : tab === "Renewals" ? (
-                      <button className="small-button" onClick={() => renew(m)}>
-                        Renew
-                      </button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               );
             })}
             {!rows.length && (
               <div className="empty">
-                <p>No members need attention in this category.</p>
+                <p>
+                  No members need attention in this category.
+                </p>
               </div>
             )}
           </div>

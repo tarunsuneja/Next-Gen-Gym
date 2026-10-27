@@ -78,7 +78,7 @@ export function PaymentReceipt({
         </div>
         <p className="receipt-thanks">Thank you. Keep showing up.</p>
       </div>
-      <div className="form-actions no-print">
+      <div className="form-actions receipt-actions no-print">
         {!payment.voided &&
           data.members.find((m) => m.id === payment.memberId) && (
             <>

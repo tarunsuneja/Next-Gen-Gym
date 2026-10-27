@@ -104,8 +104,7 @@ function BalanceFields({ data, member }: { data: Data; member: Member }) {
   if (!period)
     return (
       <p className="context-note">
-        No payment is due. Existing memberships are already paid. Choose Buy /
-        renew membership only to purchase a new membership period.
+        No payment is due. Existing memberships are already paid.
       </p>
     );
   const amount = outstanding(data, period);
@@ -139,34 +138,38 @@ function BalanceFields({ data, member }: { data: Data; member: Member }) {
 export function CheckoutForm({
   data,
   member,
-  renew = false,
   onReadyChange,
 }: {
   data: Data;
   member?: Member;
-  renew?: boolean;
   onReadyChange?: (ready: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const [memberId, setMemberId] = useState(member?.id || "");
   const [mode, setMode] = useState<"purchase" | "balance">(
-    renew ||
-      (member &&
-        !data.memberships.some((s) => s.memberId === member.id && !s.cancelled))
+    member &&
+      !data.memberships.some((s) => s.memberId === member.id && !s.cancelled)
       ? "purchase"
       : "balance",
   );
-  const [purchaseConfirmed, setPurchaseConfirmed] = useState(renew);
+  const [purchaseConfirmed, setPurchaseConfirmed] = useState(false);
   const [requestId] = useState(id);
   const selected = data.members.find((m) => m.id === memberId);
   const hasMembership =
     !!selected &&
     data.memberships.some((s) => s.memberId === selected.id && !s.cancelled);
+  const pendingAmount = selected ? balance(data, selected.id) : 0;
+  const previous = selected ? latest(data, selected.id) : undefined;
+  const canExtend =
+    !selected?.archived &&
+    pendingAmount === 0 &&
+    (!previous || previous.end <= shiftDay(today(), 7));
   const ready =
     !!selected &&
     (mode === "balance"
       ? balance(data, selected.id) > 0
-      : !selected.archived &&
+      : canExtend &&
+        !selected.archived &&
         data.plans.length > 0 &&
         (!hasMembership || purchaseConfirmed));
   useEffect(() => {
@@ -258,8 +261,8 @@ export function CheckoutForm({
               <small>{selected.phone}</small>
               {balance(data, selected.id) > 0 && (
                 <small>
-                  Existing balance: {money(balance(data, selected.id))}. Use
-                  Clear existing balance to settle it.
+                  Pending fee: {money(pendingAmount)}. Collect this existing fee
+                  before renewing.
                 </small>
               )}
             </span>
@@ -277,30 +280,41 @@ export function CheckoutForm({
             role="group"
             aria-label="Payment purpose"
           >
-            <button
-              type="button"
-              aria-pressed={mode === "purchase"}
-              className={mode === "purchase" ? "active" : ""}
-              onClick={() => {
-                setMode("purchase");
-                setPurchaseConfirmed(true);
-              }}
-            >
-              Buy / renew membership
-            </button>
+            {(pendingAmount > 0 || canExtend) && (
+              <button
+                type="button"
+                aria-pressed={mode === "purchase"}
+                disabled={!canExtend}
+                className={mode === "purchase" ? "active" : ""}
+                onClick={() => {
+                  setMode("purchase");
+                  setPurchaseConfirmed(true);
+                }}
+              >
+                {hasMembership ? "Extend membership" : "Add membership"}
+              </button>
+            )}
             <button
               type="button"
               aria-pressed={mode === "balance"}
               className={mode === "balance" ? "active" : ""}
               onClick={() => setMode("balance")}
             >
-              Clear existing balance
+              Collect pending fee
             </button>
           </div>
           {mode === "purchase" ? (
             <PurchaseFields key={selected.id} data={data} member={selected} />
           ) : (
             <BalanceFields key={selected.id} data={data} member={selected} />
+          )}
+          {mode === "balance" && pendingAmount === 0 && previous && (
+            <p className="helper">
+              Membership ends {date(previous.end)}.{" "}
+              {canExtend
+                ? "Choose Extend membership to review the new dates and fee."
+                : `Extension becomes available ${date(shiftDay(previous.end, -7))}, seven days before expiry.`}
+            </p>
           )}
         </>
       )}

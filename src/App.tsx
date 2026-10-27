@@ -22,6 +22,8 @@ import {
 } from "./WhatsAppActions";
 import { CheckoutForm } from "./CheckoutForm";
 import { DashboardShortcuts } from "./DashboardShortcuts";
+import { membershipCountdown } from "./shared/membershipCountdown";
+import { PendingPaymentsPreview } from "./features/dashboard/PendingPaymentsPreview";
 import { PlanDistribution } from "./PlanDistribution";
 import { ModalView } from "./ModalView";
 import { MemberRegistration } from "./MemberRegistration";
@@ -128,6 +130,7 @@ const AttendanceRecordsView = lazy(() =>
   })),
 );
 const loading = <p role="status">Loading…</p>;
+const PendingPayments = lazy(() => import("./features/payments/PendingPayments"));
 const DeveloperTools = lazy(() => import("./features/developer/DeveloperTools"));
 const AttendanceRecords = (
   props: ComponentProps<typeof AttendanceRecordsView>,
@@ -193,7 +196,6 @@ type Modal = ModalFields &
         kind:
           | "member"
           | "payment"
-          | "membership"
           | "welcome"
           | "memberDelete"
           | "override"
@@ -297,6 +299,7 @@ export default function App() {
     </button>
   );
   const [page, setPage] = useState<Page>("Dashboard"),
+    [feesSection, setFeesSection] = useState("Payment History"),
     [query, setQuery] = useState(""),
     [attentionIds, setAttentionIds] = useState<string[]>([]),
     [filter, setFilter] = useState("All"),
@@ -484,13 +487,14 @@ export default function App() {
   const collectFromDashboard = useStableEvent((member: Member) =>
     setModal({ kind: "payment", member }),
   );
-  const renewFromDashboard = useStableEvent((member: Member) =>
-    openMembership(member),
-  );
   const viewAttention = useStableEvent((category: string, ids: string[]) => {
     if (navigate("Members") === false) return;
     setAttentionIds(ids);
     setFilter(`Attention: ${category}`);
+  });
+  const openPendingPayments = useStableEvent(() => {
+    if (navigate("Fees & receipts") === false) return;
+    setFeesSection("Pending Payments");
   });
   const viewPlan = useStableEvent((name: string, ids: string[]) => {
     if (navigate("Members") === false) return;
@@ -605,6 +609,7 @@ export default function App() {
     setViewRange(null);
     setAttendanceTab("Check-in");
     setReminderMode("Manual");
+    if (p === "Fees & receipts") setFeesSection("Payment History");
     setPage(p);
     setQuery("");
     setFilter("All");
@@ -761,7 +766,7 @@ export default function App() {
       records={list}
       label="members"
       render={(list) => (
-        <div className="table-scroll">
+        <div className={`table-scroll ${mode === "attendance" ? "attendance-member-records" : "member-records"}`}>
           <table>
             <thead>
               <tr>
@@ -803,8 +808,8 @@ export default function App() {
                     {page === "Members" && (
                       <td data-label="Joining date">{date(m.joined)}</td>
                     )}
-                    <td data-label="Membership">{s?.planName || "No plan"}</td>
-                    <td data-label="Expiry">{s ? date(s.end) : "—"}</td>
+                    <td data-label="Membership">{s?.planName || "No plan"}{s && page === "Members" && !m.archived && <small className="member-expiry-countdown">{membershipCountdown(s.end, t, s.start)}</small>}</td>
+                    <td data-label="Expiry">{s ? <><span>{date(s.end)}</span><small>{membershipCountdown(s.end, t, s.start)}</small></> : "—"}</td>
                     <td
                       data-label={mode === "attendance" ? "Today" : "Balance"}
                     >
@@ -890,10 +895,11 @@ export default function App() {
                           {page === "Members" && (
                             <button
                               className="small-button"
-                              disabled={m.archived}
-                              onClick={() => openMembership(m)}
+                              disabled={workspaceIndex!.balance(m.id) <= 0}
+                              title={workspaceIndex!.balance(m.id) <= 0 ? "No outstanding payment" : "Collect outstanding payment"}
+                              onClick={() => setModal({ kind: "payment", member: m })}
                             >
-                              {s ? "Renew" : "Add membership"}
+                              Collect payment
                             </button>
                           )}
                           <button
@@ -922,7 +928,7 @@ export default function App() {
       label="payments"
       disabled={serverPage}
       render={(payments) => (
-        <div className="table-scroll">
+        <div className="table-scroll payment-records">
           <table>
             <thead>
               <tr>
@@ -984,8 +990,6 @@ export default function App() {
       )}
     />
   );
-  const openMembership = (m?: Member) =>
-    setModal({ kind: "membership", member: m });
   async function saveForm(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget),
@@ -997,11 +1001,10 @@ export default function App() {
       const method = s("method");
       if (
         amount > 0 &&
-        (!["Cash", "UPI", "Card", "Bank transfer"].includes(method) ||
-          (method !== "Cash" && !s("reference").trim()))
+        !["Cash", "UPI", "Card", "Bank transfer"].includes(method)
       )
         throw Error(
-          "Select the payment method and enter its transaction reference.",
+          "Select a valid payment method.",
         );
       if (amount > 0 && Math.round(n("receivedAmount") * 100) !== amount)
         throw Error("The full payment amount is required.");
@@ -1127,7 +1130,7 @@ export default function App() {
             if (member) setModal({ kind: "welcome", member });
           }
         }
-      } else if (kind === "membership" || kind === "payment") {
+      } else if (kind === "payment") {
           const selectedMember = workspaceIndex?.members.get(s("memberId")) || data?.members.find((m) => m.id === s("memberId"));
         if (!selectedMember)
           throw Error("Search for and select a member first.");
@@ -1149,11 +1152,16 @@ export default function App() {
             requestId: s("paymentRequestId"),
           };
         } else {
+          if (workspaceIndex!.balance(selectedMember.id) > 0)
+            throw Error("Collect the pending membership fee before renewing.");
+          const previousPeriod = workspaceIndex!.latest(selectedMember.id);
+          if (previousPeriod && previousPeriod.end > shiftDay(t, 7))
+            throw Error("No payment is due. Extend membership within seven days of the current expiry date.");
           if (
             d.memberships.some((period) => period.memberId === selectedMember.id && !period.cancelled) &&
             s("purchaseIntent") !== "renewal"
           )
-            throw Error("Select an unpaid membership to collect its fee, or explicitly choose Buy / renew membership for a new period.");
+            throw Error("Select an unpaid membership to collect its fee, or explicitly choose Extend membership for a new period.");
           const plan = d.plans.find((p) => p.id === s("plan"));
           if (!plan || selectedMember.archived)
             throw Error("Select an available member and membership plan.");
@@ -1369,7 +1377,7 @@ export default function App() {
           </a>
           <div className="sidebar-brand-divider" />
         </div>
-        <span className="nav-label">WORKSPACE</span>
+        <span className="nav-label">Workspace</span>
         <nav aria-label="Main navigation">
           {nav
             .filter(([p]) => (p !== "Audit" || role === "owner") && (p !== "Developer Tools" || developerAllowed))
@@ -1478,7 +1486,7 @@ export default function App() {
           className={`workspace${page === "Dashboard" && !selected ? " dashboard-workspace" : ""}`}
         >
           <div
-            className={`page-heading${selected ? " profile-page-heading" : ""}`}
+            className={`page-heading${selected ? " profile-page-heading" : ""}${!selected && (page === "Members" || page === "Fees & receipts") ? " compact-mobile-heading" : ""}`}
           >
             <div>
               <h1>
@@ -1587,24 +1595,11 @@ export default function App() {
                   </button>
                   <button
                     className="primary"
-                    disabled={selected.archived}
-                    onClick={() => openMembership(selected)}
+                    disabled={workspaceIndex!.balance(selected.id) <= 0}
+                    title={workspaceIndex!.balance(selected.id) <= 0 ? "No outstanding payment" : "Collect outstanding payment"}
+                    onClick={() => setModal({ kind: "payment", member: selected })}
                   >
-                    <RefreshCw size={16} />
-                    {workspaceIndex!.latest(selected.id)
-                      ? "Renew"
-                      : "Add membership"}
-                  </button>
-                  <button
-                    className="secondary"
-                    disabled={
-                      workspaceIndex!.balance(selected.id) <= 0
-                    }
-                    onClick={() =>
-                      setModal({ kind: "payment", member: selected })
-                    }
-                  >
-                    Collect payment
+                    <Wallet size={16} /> Collect payment
                   </button>
                   <details className="action-menu profile-more">
                     <summary>More actions</summary>
@@ -1696,7 +1691,7 @@ export default function App() {
                         </strong>
                         <small>
                           {workspaceIndex!.latest(selected.id)
-                            ? `Ends ${date(workspaceIndex!.latest(selected.id)!.end)}`
+                            ? <>Ends {date(workspaceIndex!.latest(selected.id)!.end)}<span className="expiry-countdown-spaced">{membershipCountdown(workspaceIndex!.latest(selected.id)!.end, t, workspaceIndex!.latest(selected.id)!.start)}</span></>
                             : "Add a plan to get started"}
                         </small>
                       </span>
@@ -1824,6 +1819,7 @@ export default function App() {
                             <small>
                               {date(m.start)} – {date(m.end)}
                             </small>
+                            {!m.cancelled && <small>{membershipCountdown(m.end, t, m.start)}</small>}
                           </div>
                           <span>
                             {money(m.amount)}
@@ -2029,36 +2025,17 @@ export default function App() {
                     <>
                       {rangePaymentCount}{" "}
                       {rangePaymentCount === 1 ? "payment" : "payments"}
-                      <Trend
-                        now={rangeCash}
-                        prev={prevCash}
-                        label={dashWin.note}
-                      />
                     </>
                   }
                   accent="blue"
                 />
                 <Stat
                   title="Pending fees"
-                  onClick={() => {
-                    navigate("Members");
-                    setFilter("Pending fees");
-                  }}
+                  onClick={openPendingPayments}
                   value={money(pending)}
                   icon={<CreditCard />}
                   note={`Current · ${d.members.filter((m) => workspaceIndex!.balance(m.id) > 0).length} members with a balance`}
                   accent="amber"
-                />
-                <Stat
-                  title="Expiring in 7 days"
-                  value={String(soon.length)}
-                  icon={<CalendarDays />}
-                  note="Upcoming membership renewals"
-                  accent="violet"
-                  onClick={() => {
-                    navigate("Members");
-                    setFilter("Expiring soon");
-                  }}
                 />
                 <Stat
                   title="Today's check-ins"
@@ -2089,10 +2066,7 @@ export default function App() {
                   data={d}
                   add={() => setModal({ kind: "member" })}
                   collect={() => setModal({ kind: "payment" })}
-                  pending={() => {
-                    navigate("Members");
-                    setFilter("Pending fees");
-                  }}
+                  pending={openPendingPayments}
                   attendance={() => navigate("Attendance")}
                   members={() => navigate("Members")}
                   open={(member) => {
@@ -2105,6 +2079,46 @@ export default function App() {
                     setReminderMode("Automated");
                   }}
                 />
+                <PendingPaymentsPreview
+                  data={d}
+                  open={openMemberFromDashboard}
+                  collect={collectFromDashboard}
+                  viewAll={openPendingPayments}
+                />
+                <section className="panel dashboard-recent-payments">
+                  <div className="panel-header">
+                    <h2>Recent payments</h2>
+                    <button
+                      className="text-button"
+                      onClick={() => navigate("Fees & receipts")}
+                    >
+                      View all <ArrowUpRight size={15} />
+                    </button>
+                  </div>
+                  {d.payments
+                    .filter((p) => !p.voided)
+                    .slice()
+                    .sort((a, b) => b.at.localeCompare(a.at))
+                    .slice(0, 5)
+                    .map((p) => (
+                      <div className="list-item" key={p.id}>
+                        <Avatar
+                        name={workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}
+                        photo={workspaceIndex!.members.get(p.memberId)?.photo}
+                      />
+                      <div>
+                        <strong>{workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}</strong>
+                          <small>
+                            {p.receipt} · {p.method}
+                          </small>
+                        </div>
+                        <strong>{money(p.amount)}</strong>
+                      </div>
+                    ))}
+                  {!d.payments.some((p) => !p.voided) && (
+                    <Empty text="Your first collection will appear here." />
+                  )}
+                </section>
                 <section className="panel collection-panel">
                   <div className="panel-header">
                     <div>
@@ -2145,78 +2159,13 @@ export default function App() {
                   )}
                 </section>
                 <PlanDistribution day={currentDay} data={d} open={viewPlan} />
-                <DashboardShortcuts
-                  section="pending"
-                  data={d}
-                  add={() => setModal({ kind: "member" })}
-                  collect={() => setModal({ kind: "payment" })}
-                  pending={() => {
-                    navigate("Members");
-                    setFilter("Pending fees");
-                  }}
-                  attendance={() => navigate("Attendance")}
-                  members={() => navigate("Members")}
-                  open={(member) => {
-                    navigate("Members");
-                    setSelected(member);
-                  }}
-                  setup={() => {
-                    navigate("Reminders");
-                    setMessagingSection("Setup");
-                    setReminderMode("Automated");
-                  }}
-                />
-                <section className="panel dashboard-recent-payments">
-                  <div className="panel-header">
-                    <h2>Recent payments</h2>
-                    <button
-                      className="text-button"
-                      onClick={() => navigate("Fees & receipts")}
-                    >
-                      View all <ArrowUpRight size={15} />
-                    </button>
-                  </div>
-                  {d.payments
-                    .filter((p) => !p.voided)
-                    .slice()
-                    .sort((a, b) => b.at.localeCompare(a.at))
-                    .slice(0, 5)
-                    .map((p) => (
-                      <div className="list-item" key={p.id}>
-                        <Avatar
-                        name={workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}
-                        photo={workspaceIndex!.members.get(p.memberId)?.photo}
-                      />
-                      <div>
-                        <strong>{workspaceIndex!.members.get(p.memberId)?.name || "Unknown member"}</strong>
-                          <small>
-                            {p.receipt} · {p.method}
-                          </small>
-                        </div>
-                        <strong>{money(p.amount)}</strong>
-                      </div>
-                    ))}
-                  {!d.payments.some((p) => !p.voided) && (
-                    <Empty text="Your first collection will appear here." />
-                  )}
-                </section>
-                <AttentionQueue
-                  day={currentDay}
-                  data={d}
-                  open={openMemberFromDashboard}
-                  pay={collectFromDashboard}
-                  renew={renewFromDashboard}
-                  viewAll={viewAttention}
-                />
+
                 <DashboardShortcuts
                   section="members"
                   data={d}
                   add={() => setModal({ kind: "member" })}
                   collect={() => setModal({ kind: "payment" })}
-                  pending={() => {
-                    navigate("Members");
-                    setFilter("Pending fees");
-                  }}
+                  pending={openPendingPayments}
                   attendance={() => navigate("Attendance")}
                   members={() => navigate("Members")}
                   open={(member) => {
@@ -2244,10 +2193,7 @@ export default function App() {
                   data={d}
                   add={() => setModal({ kind: "member" })}
                   collect={() => setModal({ kind: "payment" })}
-                  pending={() => {
-                    navigate("Members");
-                    setFilter("Pending fees");
-                  }}
+                  pending={openPendingPayments}
                   attendance={() => navigate("Attendance")}
                   members={() => navigate("Members")}
                   open={(member) => {
@@ -2260,49 +2206,29 @@ export default function App() {
                     setReminderMode("Automated");
                   }}
                 />
+                <AttentionQueue
+                  day={currentDay}
+                  data={d}
+                  open={openMemberFromDashboard}
+                  pay={collectFromDashboard}
+                  viewAll={viewAttention}
+                />
               </div>
             </>
           ) : page === "Members" ? (
-            <section className="panel">
+            <section className="panel members-directory">
+              <div className="mobile-member-summary">{d.members.length} Total · {activeCount} Active</div>
+
               <div className="toolbar">
                 <SearchField
                   query={query}
                   setQuery={setQuery}
                   placeholder="Search name, phone or member ID"
                 />
+              <div className="mobile-member-filters" role="group" aria-label="Quick member filters">
+                {["All", "Active", "Expired", "Archived", ...(!["All", "Active", "Expired", "Archived"].includes(filter) ? [filter] : [])].map((status) => <button type="button" key={status} aria-pressed={filter === status} className={filter === status ? "selected" : ""} onClick={() => setFilter(status)}>{status === "All" ? `All Members (${d.members.length})` : status === "Active" ? `Active (${activeCount})` : status}</button>)}
+              </div>
                 <div className="toolbar-actions">
-                  {role === "owner" && (
-                    <button
-                      className="small-button"
-                      onClick={() => navigate("Settings")}
-                    >
-                      Manage plans
-                    </button>
-                  )}
-
-                  <select
-                    aria-label="Member status filter"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                  >
-                    {(filter.startsWith("Attention: ") ||
-                      filter.startsWith("Plan: ")) && (
-                      <option value={filter}>{filter}</option>
-                    )}
-                    {[
-                      "All",
-                      "Active",
-                      "Inactive",
-                      "Expired",
-                      "Pending fees",
-                      "Overdue",
-                      "Expiring soon",
-                      "Archived",
-                      ...(viewRange ? ["Joined in range"] : []),
-                    ].map((x) => (
-                      <option key={x}>{x}</option>
-                    ))}
-                  </select>
                   <button
                     className="secondary"
                     onClick={() =>
@@ -2352,7 +2278,7 @@ export default function App() {
             </section>
           ) : page === "Fees & receipts" ? (
             <>
-              <div className="mini-stats">
+              <div className="mini-stats fees-summary">
                 <span>
                   <b>
                     {money(todayPayments.reduce((a, p) => a + p.amount, 0))}
@@ -2367,6 +2293,11 @@ export default function App() {
                   recorded
                 </span>
               </div>
+              <div className="tabs" role="tablist" aria-label="Payment views">
+                {["Pending Payments", "Payment History"].map((tab) => <button type="button" role="tab" id={`fees-${tab === "Pending Payments" ? "pending" : "history"}`} key={tab} aria-controls="fees-records" aria-selected={feesSection === tab} className={feesSection === tab ? "active" : ""} onClick={() => setFeesSection(tab)}>{tab}</button>)}
+              </div>
+              <div role="tabpanel" id="fees-records" aria-labelledby={`fees-${feesSection === "Pending Payments" ? "pending" : "history"}`}>
+              {feesSection === "Payment History" ? (
               <section className="panel">
                 <div className="toolbar">
                   <SearchField
@@ -2375,7 +2306,7 @@ export default function App() {
                     placeholder="Search member or receipt"
                   />
                   <button
-                    className="secondary"
+                    className="secondary payment-history-export"
                     disabled={exportingPayments}
                     aria-busy={exportingPayments}
                     onClick={() => void exportPaymentHistory()}
@@ -2413,18 +2344,12 @@ export default function App() {
                   paymentsTable(visiblePayments.slice().reverse())
                 )}
               </section>
-              <section className="panel">
-                <div className="panel-header">
-                  <h2>Outstanding balances</h2>
-                </div>
-                {memberRows(
-                  d.members.filter((m) => workspaceIndex!.balance(m.id) > 0),
-                )}
-              </section>
+              ) : <Suspense fallback={loading}><PendingPayments data={d} open={(member) => { navigate("Members"); setSelected(member); }} collect={(member) => setModal({ kind: "payment", member })} /></Suspense>}
+              </div>
             </>
           ) : page === "Attendance" ? (
             <>
-              <div className="mini-stats">
+              <div className="mini-stats attendance-summary">
                 <span>
                   <b>{checkins.length}</b> Check-ins today
                 </span>
@@ -2953,14 +2878,13 @@ export default function App() {
           busy={busy}
           wide={modal.kind === "member" && !modal.member}
           className={
-            ["membership", "payment"].includes(modal.kind)
+            modal.kind === "payment"
               ? "checkout-modal"
               : ""
           }
           title={
             {
               member: modal.member ? "Edit member" : "Add a member",
-              membership: "New membership / renewal",
               payment: "Collect a payment",
               override: "Membership override",
               receipt: "Payment receipt",
@@ -2987,7 +2911,7 @@ export default function App() {
         >
           <>
             {modal.member &&
-              !["receipt", "member", "membership", "payment"].includes(
+              !["receipt", "member", "payment"].includes(
                 modal.kind,
               ) && (
                 <div className="modal-member-identity member-identity">
@@ -3237,9 +3161,6 @@ export default function App() {
                     busy={busy}
                   />
                 )}
-                {modal.kind === "membership" && (
-                  <CheckoutForm data={d} member={modal.member} renew onReadyChange={setCheckoutReady} />
-                )}
                 {modal.kind === "payment" && (
                   <CheckoutForm data={d} member={modal.member} onReadyChange={setCheckoutReady} />
                 )}
@@ -3359,7 +3280,7 @@ export default function App() {
                     className="primary"
                     disabled={
                       busy ||
-                      (["payment", "membership"].includes(modal.kind) && !checkoutReady) ||
+                      (modal.kind === "payment" && !checkoutReady) ||
                       (modal.kind === "expire" &&
                         !!modal.membership?.freezeEnd &&
                         modal.membership.freezeEnd >= t) ||
@@ -3372,8 +3293,6 @@ export default function App() {
                       ? "Saving…"
                       : modal.kind === "payment"
                         ? "Receive full payment"
-                        : modal.kind === "membership"
-                          ? "Complete membership & payment"
                           : modal.kind === "member" && !modal.member
                             ? "Complete registration"
                             : modal.kind === "memberDelete"

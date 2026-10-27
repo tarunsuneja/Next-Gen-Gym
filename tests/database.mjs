@@ -1186,12 +1186,33 @@ try {
       }),
     /full|remaining|balance/i,
   );
+  const periodsBeforeBlockedRenewal = deferredData.memberships.length;
+  const paymentsBeforeBlockedRenewal = deferredData.payments.length;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await assert.rejects(
+      () =>
+        action("membership", {
+          ...registrationFee,
+          memberId: deferredMember.id,
+          start: "2099-01-01",
+          payment: {
+            amount: registrationFee.amount,
+            method: "Cash",
+            reference: "Blocked renewal",
+            requestId: crypto.randomUUID(),
+          },
+        }),
+      /pending membership fee before renewing/,
+    );
+  }
+  assert.equal((await read()).memberships.length, periodsBeforeBlockedRenewal);
+  assert.equal((await read()).payments.length, paymentsBeforeBlockedRenewal);
   const settlementId = crypto.randomUUID();
   const settlement = {
     membershipId: deferredPeriod.id,
     amount: 150000,
-    method: "Cash",
-    reference: "Deferred settlement",
+    method: "UPI",
+    reference: "",
   };
   await action("payment", settlement, settlementId);
   await action("payment", settlement, settlementId);
@@ -1209,6 +1230,46 @@ try {
     deferredData.memberships.find((s) => s.id === deferredPeriod.id).end,
     deferredPeriod.end,
   );
+  await assert.rejects(
+    () =>
+      action("membership", {
+        ...registrationFee,
+        memberId: deferredMember.id,
+        start: "2099-01-01",
+        payment: {
+          amount: registrationFee.amount,
+          method: "Cash",
+          reference: "Early extension blocked",
+          requestId: crypto.randomUUID(),
+        },
+      }),
+    /within seven days/,
+  );
+  await db.exec("begin");
+  await db.query(
+    "insert into memberships(gym_id,member_id,plan_name,start_date,end_date,amount,cancelled,cancel_reason) select gym_id,member_id,plan_name,'2098-01-01'::date,'2098-01-31'::date,amount,true,'Accidental future renewal cancelled' from memberships where id=$1",
+    [deferredPeriod.id],
+  );
+  await db.query(
+    "update memberships set end_date=(now() at time zone 'Asia/Kolkata')::date+3 where id=$1",
+    [deferredPeriod.id],
+  );
+  await action("membership", {
+    ...registrationFee,
+    memberId: deferredMember.id,
+    start: "2099-01-01",
+    payment: {
+      amount: registrationFee.amount,
+      method: "Cash",
+      reference: "Renewal after settling dues",
+      requestId: crypto.randomUUID(),
+    },
+  });
+  assert.equal(
+    (await read()).memberships.length,
+    periodsBeforeBlockedRenewal + 2,
+  );
+  await db.exec("rollback");
   await assert.rejects(
     () =>
       action("member", {
