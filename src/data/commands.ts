@@ -16,6 +16,7 @@ export type PurchaseInput = {
   discountType: string;
   discountValue: number;
   dueDate: string;
+  deferPayment?: boolean;
   payment?: PaymentInput;
 };
 type Identified = { id: string };

@@ -1101,6 +1101,380 @@ try {
   assert.equal(scoped.members.length, snapshotBefore.members.length);
   assert(!("attendance" in scoped));
   assert.deepEqual(scoped.payments, snapshotBefore.payments);
+  // Registration dates and payment dates are independent; deferred fees stay unpaid.
+  const dates = (
+    await db.query(
+      "select (now() at time zone 'Asia/Kolkata')::date::text as today, ((now() at time zone 'Asia/Kolkata')::date + 3)::text as later",
+    )
+  ).rows[0];
+  const deferredPlan = (await read()).plans.find(
+    (p) => p.id === enrollmentPlan.id,
+  );
+  const registrationFee = {
+    planId: deferredPlan.id,
+    start: dates.today,
+    amount: 150000,
+    baseAmount: 150000,
+    discountType: "fixed",
+    discountValue: 0,
+    dueDate: dates.later,
+  };
+  for (const [suffix, start] of [
+    ["same-day", dates.today],
+    ["future-start", dates.later],
+  ]) {
+    await action("member", {
+      name: `Registration ${suffix}`,
+      phone: suffix === "same-day" ? "9876000101" : "9876000102",
+      enrollment: {
+        ...registrationFee,
+        start,
+        payment: {
+          amount: 150000,
+          method: "Cash",
+          reference: "",
+          requestId: crypto.randomUUID(),
+        },
+      },
+    });
+    const paidData = await read();
+    const paidMember = paidData.members.find(
+      (m) => m.name === `Registration ${suffix}`,
+    );
+    assert.equal(
+      paidData.memberships.find((s) => s.memberId === paidMember.id).start,
+      start,
+    );
+    assert.equal(
+      paidData.payments.filter((p) => p.memberId === paidMember.id).length,
+      1,
+    );
+  }
+  const deferredRequest = crypto.randomUUID();
+  const deferredRegistration = {
+    name: "Deferred registration",
+    phone: "9876000103",
+    enrollment: { ...registrationFee, deferPayment: true },
+  };
+  await action("member", deferredRegistration, deferredRequest);
+  await action("member", deferredRegistration, deferredRequest);
+  let deferredData = await read();
+  const deferredMember = deferredData.members.find(
+    (m) => m.name === deferredRegistration.name,
+  );
+  const deferredPeriod = deferredData.memberships.find(
+    (s) => s.memberId === deferredMember.id,
+  );
+  assert.equal(deferredPeriod.start, dates.today);
+  assert.equal(deferredPeriod.dueDate, dates.later);
+  assert.equal(
+    deferredData.members.filter((m) => m.id === deferredMember.id).length,
+    1,
+  );
+  assert.equal(
+    deferredData.payments.filter((p) => p.memberId === deferredMember.id)
+      .length,
+    0,
+  );
+  await assert.rejects(
+    () =>
+      action("payment", {
+        membershipId: deferredPeriod.id,
+        amount: 100,
+        method: "Cash",
+        reference: "",
+      }),
+    /full|remaining|balance/i,
+  );
+  const settlementId = crypto.randomUUID();
+  const settlement = {
+    membershipId: deferredPeriod.id,
+    amount: 150000,
+    method: "Cash",
+    reference: "Deferred settlement",
+  };
+  await action("payment", settlement, settlementId);
+  await action("payment", settlement, settlementId);
+  await assert.rejects(
+    () => action("payment", settlement, crypto.randomUUID()),
+    /full pending balance/,
+  );
+  deferredData = await read();
+  assert.equal(
+    deferredData.payments.filter((p) => p.memberId === deferredMember.id)
+      .length,
+    1,
+  );
+  assert.equal(
+    deferredData.memberships.find((s) => s.id === deferredPeriod.id).end,
+    deferredPeriod.end,
+  );
+  await assert.rejects(
+    () =>
+      action("member", {
+        name: "Invalid deferred",
+        phone: "9876000104",
+        enrollment: {
+          ...registrationFee,
+          deferPayment: true,
+          dueDate: "2000-01-01",
+        },
+      }),
+    /due date/i,
+  );
+  await assert.rejects(
+    () =>
+      action("member", {
+        name: "Invalid mixed payment",
+        phone: "9876000105",
+        enrollment: {
+          ...registrationFee,
+          deferPayment: true,
+          payment: { amount: 1 },
+        },
+      }),
+    /must not include/i,
+  );
+  assert(
+    !(await read()).members.some(
+      (m) =>
+        m.name.startsWith("Invalid deferred") ||
+        m.name === "Invalid mixed payment",
+    ),
+  );
+  await action("member", {
+    name: "Joining date test",
+    phone: "9876000111",
+    joined: "2000-01-01",
+  });
+  let joiningMember = (await read()).members.find(
+    (m) => m.name === "Joining date test",
+  );
+  assert.equal(joiningMember.joined, "2000-01-01");
+  await action("member", { ...joiningMember, joined: "2001-02-03" });
+  joiningMember = (await read()).members.find((m) => m.id === joiningMember.id);
+  assert.equal(joiningMember.joined, "2001-02-03");
+  const withoutJoiningDate = { ...joiningMember };
+  delete withoutJoiningDate.joined;
+  await action("member", withoutJoiningDate);
+  assert.equal(
+    (await read()).members.find((m) => m.id === joiningMember.id).joined,
+    "2001-02-03",
+  );
+  for (const joined of [dates.later, "", "2026-02-30"]) {
+    await assert.rejects(() =>
+      action("member", {
+        name: "Invalid joining",
+        phone: "9876000112",
+        joined,
+      }),
+    );
+  }
+  assert(!(await read()).members.some((m) => m.name === "Invalid joining"));
+  // Developer privileges are a separate server-controlled grant, never a staff role.
+  const developerRead = async () =>
+    (await db.query("select developer_workspace() as snapshot")).rows[0]
+      .snapshot;
+  assert.equal(
+    (await db.query("select is_developer() as allowed")).rows[0].allowed,
+    false,
+  );
+  await assert.rejects(developerRead, /Developer access/);
+  const gymForDeveloper = (await db.query("select my_gym() as id")).rows[0].id;
+  await db.query(
+    "insert into developer_accounts(user_id,gym_id) values($1,$2)",
+    [owner, gymForDeveloper],
+  );
+  assert.equal(
+    (await db.query("select is_developer() as allowed")).rows[0].allowed,
+    true,
+  );
+  const developerSnapshot = await developerRead();
+  const correctionId = crypto.randomUUID();
+  const correctionPayload = {
+    ...joiningMember,
+    notes: "Developer correction fixture",
+  };
+  const correct = (
+    payload,
+    revision,
+    request = correctionId,
+    actionType = "member",
+  ) =>
+    db.query("select developer_correct($1,$2::jsonb,$3,$4,$5::uuid)", [
+      actionType,
+      JSON.stringify(payload),
+      "Correct test member notes",
+      revision,
+      request,
+    ]);
+  await correct(correctionPayload, developerSnapshot.revision);
+  await correct(correctionPayload, developerSnapshot.revision);
+  assert.equal(
+    (await read()).members.find((m) => m.id === joiningMember.id).notes,
+    "Developer correction fixture",
+  );
+  const correctionAudit = (
+    await db.query("select * from developer_corrections where request_id=$1", [
+      correctionId,
+    ])
+  ).rows[0];
+  assert.equal(correctionAudit.actor, owner);
+  assert.equal(correctionAudit.before_record.notes, joiningMember.notes);
+  assert.equal(
+    correctionAudit.after_record.notes,
+    "Developer correction fixture",
+  );
+  await assert.rejects(
+    () =>
+      correct(
+        { ...correctionPayload, notes: "Stale overwrite" },
+        developerSnapshot.revision,
+        crypto.randomUUID(),
+      ),
+    /changed/,
+  );
+  await assert.rejects(
+    () =>
+      correct(
+        { ...correctionPayload, notes: "Changed request" },
+        developerSnapshot.revision,
+      ),
+    /already been used/,
+  );
+  const freshDeveloper = await developerRead();
+  await assert.rejects(
+    () =>
+      correct(
+        { id: deferredMember.id },
+        freshDeveloper.revision,
+        crypto.randomUUID(),
+        "memberDelete",
+      ),
+    /payment records/,
+  );
+  assert.equal(
+    (await db.query("select count(*)::int as n from developer_corrections"))
+      .rows[0].n,
+    1,
+  );
+  const paymentForDeletion = (await read()).payments.find(
+    (p) => p.memberId === deferredMember.id && !p.voided,
+  );
+  const deleteSnapshot = await developerRead();
+  await assert.rejects(
+    () =>
+      correct(
+        { id: paymentForDeletion.id, confirmReceipt: "WRONG" },
+        deleteSnapshot.revision,
+        crypto.randomUUID(),
+        "paymentDelete",
+      ),
+    /exact receipt/,
+  );
+  const receiptSequence = (
+    await db.query("select receipt_seq::text as seq from gyms where id=$1", [
+      gymForDeveloper,
+    ])
+  ).rows[0].seq;
+  await db.exec("begin");
+  const deletionId = crypto.randomUUID();
+  const deletePayload = {
+    id: paymentForDeletion.id,
+    confirmReceipt: paymentForDeletion.receipt,
+  };
+  await correct(
+    deletePayload,
+    deleteSnapshot.revision,
+    deletionId,
+    "paymentDelete",
+  );
+  await correct(
+    deletePayload,
+    deleteSnapshot.revision,
+    deletionId,
+    "paymentDelete",
+  );
+  assert(!(await read()).payments.some((p) => p.id === paymentForDeletion.id));
+  const restoredDue = (
+    await db.query(
+      "select m.amount-coalesce(sum(p.amount) filter (where not p.voided),0) as due from memberships m left join payments p on p.membership_id=m.id where m.id=$1 group by m.id",
+      [deferredPeriod.id],
+    )
+  ).rows[0].due;
+  assert.equal(Number(restoredDue), deferredPeriod.amount);
+  const deletedAudit = (
+    await db.query("select * from developer_corrections where request_id=$1", [
+      deletionId,
+    ])
+  ).rows[0];
+  assert.equal(deletedAudit.before_record.receipt, paymentForDeletion.receipt);
+  assert.equal(deletedAudit.after_record, null);
+  assert.equal(
+    (
+      await db.query("select receipt_seq::text as seq from gyms where id=$1", [
+        gymForDeveloper,
+      ])
+    ).rows[0].seq,
+    receiptSequence,
+  );
+  assert.equal(
+    (
+      await db.query(
+        "select count(*)::int as n from audit_logs where action='paymentDelete' and payload->>'id'=$1",
+        [paymentForDeletion.id],
+      )
+    ).rows[0].n,
+    1,
+  );
+  const postDeleteSnapshot = await developerRead();
+  await assert.rejects(
+    () =>
+      correct(
+        deletePayload,
+        postDeleteSnapshot.revision,
+        crypto.randomUUID(),
+        "paymentDelete",
+      ),
+    /not found/,
+  );
+  await db.exec("rollback");
+  assert.equal(
+    (
+      await db.query(
+        "select has_table_privilege('authenticated','public.developer_accounts','INSERT') as allowed",
+      )
+    ).rows[0].allowed,
+    false,
+  );
+  await db.query("select set_config('test.user',$1,false)", [staff]);
+  await assert.rejects(developerRead, /Developer access/);
+  await assert.rejects(
+    () =>
+      correct(
+        {
+          id: paymentForDeletion.id,
+          confirmReceipt: paymentForDeletion.receipt,
+        },
+        deleteSnapshot.revision,
+        crypto.randomUUID(),
+        "paymentDelete",
+      ),
+    /Developer access/,
+  );
+  await assert.rejects(
+    () =>
+      correct(correctionPayload, freshDeveloper.revision, crypto.randomUUID()),
+    /Developer access/,
+  );
+  await db.query("select set_config('test.user',$1,false)", [outsider]);
+  await assert.rejects(developerRead, /Developer access/);
+  await db.query("select set_config('test.user',$1,false)", [owner]);
+  await db.query(
+    "update developer_accounts set enabled=false where user_id=$1",
+    [owner],
+  );
+  await assert.rejects(developerRead, /Developer access/);
   const req = crypto.randomUUID(),
     memberPayload = {
       name: "Compact Audit",

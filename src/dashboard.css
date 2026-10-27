@@ -1,4 +1,10 @@
 /* Keep dashboard rows compact when message actions are available. */
+.dashboard-board .pending-fees-list {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
 .dashboard-board .pending-whatsapp-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -26,6 +26,7 @@
     "test:ui": "node tests/validate-ui.mjs",
     "test:all": "npm run build && npm test && npm run check:server && npm run test:db && npm run test:live",
     "test:dashboard-layout": "node --import tsx tests/dashboard-layout.mjs",
+    "test:developer": "node --import tsx tests/developer-tools.mjs",
     "test:workspace-layout": "node --import tsx tests/workspace-simplification.mjs",
     "test:checkout": "node --import tsx tests/checkout-flow.mjs",
     "test:storage": "node tests/storage-contract.mjs",

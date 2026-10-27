@@ -18,6 +18,8 @@ export function MemberRegistration({
   const [planId, setPlanId] = useState(data.plans[0]?.id || "");
   const [enroll, setEnroll] = useState(data.plans.length > 0);
   const [start, setStart] = useState(t);
+  const [paymentTiming, setPaymentTiming] = useState("received");
+  const [dueDate, setDueDate] = useState(t);
   const [base, setBase] = useState((data.plans[0]?.price || 0) / 100);
   const [discountType, setDiscountType] = useState("fixed");
   const [discountValue, setDiscountValue] = useState(0);
@@ -67,6 +69,16 @@ export function MemberRegistration({
           />
         </label>
       </div>
+      <label>
+        Joining date
+        <input
+          name="joined"
+          type="date"
+          required
+          max={t}
+          defaultValue={member?.joined || t}
+        />
+      </label>
       <label>
         Email
         <input
@@ -220,7 +232,6 @@ export function MemberRegistration({
                     value={end}
                   />
                 </label>
-                <input name="dueDate" type="hidden" value={start} />
                 <label>
                   Fee (₹)
                   <input
@@ -265,7 +276,47 @@ export function MemberRegistration({
                   {pricingError}
                 </p>
               )}
-              <PaymentDetails amount={total} />
+              {total > 0 && (
+                <div className="form-grid">
+                  <label>
+                    Payment status
+                    <select
+                      aria-label="Payment status"
+                      name="paymentTiming"
+                      value={paymentTiming}
+                      onChange={(e) => setPaymentTiming(e.target.value)}
+                    >
+                      <option value="received">Payment received</option>
+                      <option value="later">Pay later</option>
+                    </select>
+                  </label>
+                  {paymentTiming === "later" && (
+                    <label>
+                      Payment due date
+                      <input
+                        name="dueDate"
+                        type="date"
+                        required
+                        min={t}
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+              {total > 0 && paymentTiming === "later" ? (
+                <p className="context-note" role="status">
+                  {money(total)} pending. Collect the full fee later from Fees
+                  &amp; receipts. No receipt is issued until payment is
+                  received.
+                </p>
+              ) : (
+                <>
+                  <input name="dueDate" type="hidden" value={start} />
+                  <PaymentDetails amount={total} />
+                </>
+              )}
             </>
           )}
         </section>
@@ -311,8 +362,11 @@ export function MemberRegistration({
               </div>
             </dl>
             <p className="helper">
-              Member, membership and full payment are saved together. A receipt
-              is issued for payments received.
+              {total > 0 && paymentTiming === "later"
+                ? `Payment pending · Due ${date(dueDate)}`
+                : total === 0
+                  ? "Complimentary membership. Access starts on the selected start date."
+                  : "Payment is recorded today. Access starts on the selected start date."}
             </p>
           </>
         ) : (

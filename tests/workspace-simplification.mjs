@@ -91,6 +91,7 @@ try {
       if (path.endsWith("/get_gym_data") || path.endsWith("/get_gym_dashboard"))
         result = data;
       else if (path.endsWith("/my_role")) result = "owner";
+      else if (path.endsWith("/is_developer")) result = false;
       else if (path.endsWith("/gym_action")) {
         const action = r.request().postDataJSON();
         writes.push(action);

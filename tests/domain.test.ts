@@ -1,3 +1,6 @@
+import { pendingFeeRows } from "../src/features/dashboard/pendingFees";
+import { takeInvitation } from "../src/data/invitation";
+import { dashboardFixture } from "./fixtures";
 import { friendlyError } from "../src/errors.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -870,4 +873,66 @@ test("operational filtering retains date, void, inside and search semantics only
     }),
     { visiblePayments: [], attendanceRows: [] },
   );
+});
+
+test("joining date rejects invalid and future dates independently of membership start", () => {
+  const data = seed();
+  assert.equal(memberErrors(data, { joined: today() }).joined, undefined);
+  assert.equal(memberErrors(data, { joined: "2000-01-01" }).joined, undefined);
+  assert(memberErrors(data, { joined: "2026-02-30" }).joined);
+  assert(memberErrors(data, { joined: shiftDay(today(), 1) }).joined);
+});
+
+test("pending fees retain every debtor including new members and future due dates", () => {
+  const data = seed();
+  for (let i = 0; i < 16; i++) {
+    const member = {
+      ...data.members[0],
+      id: `pending-${i}`,
+      name: `Pending member ${i}`,
+      joined: today(),
+      archived: false,
+    };
+    data.members.push(member);
+    data.memberships.push({
+      ...data.memberships[0],
+      id: `pending-period-${i}`,
+      memberId: member.id,
+      start: today(),
+      end: shiftDay(today(), 29),
+      dueDate: shiftDay(today(), 3),
+      amount: 120000,
+      cancelled: false,
+    });
+  }
+  const rows = pendingFeeRows(data);
+  assert.equal(rows.filter((r) => r.id.startsWith("pending-")).length, 16);
+  assert.equal(rows.find((r) => r.id === "pending-15")?.amount, 120000);
+  assert.equal(
+    rows.find((r) => r.id === "pending-15")?.due,
+    shiftDay(today(), 3),
+  );
+  assert.deepEqual(pendingFeeRows(dashboardFixture(data)), rows);
+});
+
+test("admin invite tokens are consumed once without changing regular PKCE or recovery URLs", () => {
+  const invite = new URL(
+    "https://gym.example/?next=dashboard#type=invite&access_token=access-test&refresh_token=refresh-test",
+  );
+  assert.deepEqual(takeInvitation(invite), {
+    access_token: "access-test",
+    refresh_token: "refresh-test",
+  });
+  assert.equal(invite.hash, "");
+  assert.equal(invite.search, "?next=dashboard");
+  assert.equal(takeInvitation(invite), null);
+  for (const link of [
+    "https://gym.example/?code=pkce",
+    "https://gym.example/#type=recovery&access_token=a&refresh_token=b",
+    "https://gym.example/#type=invite&access_token=a",
+  ]) {
+    const url = new URL(link);
+    assert.equal(takeInvitation(url), null);
+    assert.equal(url.href, link);
+  }
 });

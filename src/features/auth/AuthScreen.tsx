@@ -55,11 +55,10 @@ export function AuthScreen({
       </div>
       <div className="login-form">
         <div className="mobile-brand brand">{brand}</div>
-        <span className="eyebrow">WELCOME BACK</span>
         <h2>
           {loginMode === "reset"
             ? "Reset your password"
-            : "Your day starts here."}
+            : "Welcome back"}
         </h2>
         <p className="muted">Sign in to your gym workspace.</p>
         <form onSubmit={login}>

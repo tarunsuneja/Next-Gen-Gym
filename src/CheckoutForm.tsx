@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
 import {
   type Data,
@@ -104,7 +104,8 @@ function BalanceFields({ data, member }: { data: Data; member: Member }) {
   if (!period)
     return (
       <p className="context-note">
-        This member has no outstanding memberships.
+        No payment is due. Existing memberships are already paid. Choose Buy /
+        renew membership only to purchase a new membership period.
       </p>
     );
   const amount = outstanding(data, period);
@@ -139,18 +140,39 @@ export function CheckoutForm({
   data,
   member,
   renew = false,
+  onReadyChange,
 }: {
   data: Data;
   member?: Member;
   renew?: boolean;
+  onReadyChange?: (ready: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const [memberId, setMemberId] = useState(member?.id || "");
   const [mode, setMode] = useState<"purchase" | "balance">(
-    !renew && member && balance(data, member.id) > 0 ? "balance" : "purchase",
+    renew ||
+      (member &&
+        !data.memberships.some((s) => s.memberId === member.id && !s.cancelled))
+      ? "purchase"
+      : "balance",
   );
+  const [purchaseConfirmed, setPurchaseConfirmed] = useState(renew);
   const [requestId] = useState(id);
   const selected = data.members.find((m) => m.id === memberId);
+  const hasMembership =
+    !!selected &&
+    data.memberships.some((s) => s.memberId === selected.id && !s.cancelled);
+  const ready =
+    !!selected &&
+    (mode === "balance"
+      ? balance(data, selected.id) > 0
+      : !selected.archived &&
+        data.plans.length > 0 &&
+        (!hasMembership || purchaseConfirmed));
+  useEffect(() => {
+    onReadyChange?.(ready);
+    return () => onReadyChange?.(false);
+  }, [ready, onReadyChange]);
   const term = query.trim().toLowerCase();
   const results = term
     ? data.members
@@ -166,6 +188,11 @@ export function CheckoutForm({
       <input type="hidden" name="requestId" value={requestId} />
       <input type="hidden" name="memberId" value={memberId} />
       <input type="hidden" name="checkoutMode" value={mode} />
+      <input
+        type="hidden"
+        name="purchaseIntent"
+        value={purchaseConfirmed ? "renewal" : "initial"}
+      />
       <h3>1. Select member</h3>
       {!selected ? (
         <>
@@ -192,7 +219,16 @@ export function CheckoutForm({
                 onClick={() => {
                   setMemberId(m.id);
                   setQuery("");
-                  setMode(m.archived ? "balance" : "purchase");
+                  setMode(
+                    m.archived ||
+                      balance(data, m.id) > 0 ||
+                      data.memberships.some(
+                        (s) => s.memberId === m.id && !s.cancelled,
+                      )
+                      ? "balance"
+                      : "purchase",
+                  );
+                  setPurchaseConfirmed(false);
                 }}
               >
                 <MemberAvatar name={m.name} photo={m.photo} />
@@ -245,7 +281,10 @@ export function CheckoutForm({
               type="button"
               aria-pressed={mode === "purchase"}
               className={mode === "purchase" ? "active" : ""}
-              onClick={() => setMode("purchase")}
+              onClick={() => {
+                setMode("purchase");
+                setPurchaseConfirmed(true);
+              }}
             >
               Buy / renew membership
             </button>

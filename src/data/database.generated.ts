@@ -778,6 +778,18 @@ export type Database = {
     Functions: {
       compact_audit_payload: { Args: { p: Json }; Returns: Json };
       get_gym_data: { Args: Record<PropertyKey, never>; Returns: Json };
+      is_developer: { Args: Record<PropertyKey, never>; Returns: boolean };
+      developer_workspace: { Args: Record<PropertyKey, never>; Returns: Json };
+      developer_correct: {
+        Args: {
+          p_action: string;
+          p_payload: Json;
+          p_reason: string;
+          p_revision: string;
+          p_request_id: string;
+        };
+        Returns: undefined;
+      };
       get_gym_dashboard: { Args: Record<PropertyKey, never>; Returns: Json };
       get_attendance_page: {
         Args: {

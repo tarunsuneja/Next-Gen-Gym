@@ -299,8 +299,9 @@ export function expiry(start: string, months: number) {
   d.setUTCDate(Math.min(day, last));
   return shiftDay(d.toISOString().slice(0, 10), -1);
 }
-export const outstanding = (d: Data, m: Membership) =>
-  Math.max(
+export const outstanding = (d: Data, m: Membership) => {
+  if (m.cancelled) return 0;
+  return Math.max(
     0,
     m.amount -
       (d.dashboard
@@ -309,9 +310,10 @@ export const outstanding = (d: Data, m: Membership) =>
             .filter((p) => p.membershipId === m.id && !p.voided)
             .reduce((a, p) => a + p.amount, 0)),
   );
+};
 export const balance = (d: Data, memberId: string) =>
   d.memberships
-    .filter((m) => m.memberId === memberId)
+    .filter((m) => m.memberId === memberId && !m.cancelled)
     .reduce((a, m) => a + outstanding(d, m), 0);
 export const active = (d: Data, m: Member) =>
   !m.archived &&
@@ -477,6 +479,14 @@ export function memberErrors(
   memberId?: string,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (
+    p.joined &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.joined)) ||
+      !Number.isFinite(Date.parse(String(p.joined))) ||
+      new Date(String(p.joined)).toISOString().slice(0, 10) !== p.joined ||
+      String(p.joined) > today())
+  )
+    errors.joined = "Choose a valid joining date that is not in the future.";
   if (
     p.dob &&
     (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.dob)) ||

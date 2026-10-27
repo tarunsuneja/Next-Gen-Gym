@@ -30,11 +30,12 @@ export function buildWorkspaceIndex(data: Data) {
     const rows = memberships.get(s.memberId) ?? [];
     rows.push(s);
     memberships.set(s.memberId, rows);
-    balances.set(
-      s.memberId,
-      (balances.get(s.memberId) ?? 0) +
-        Math.max(0, s.amount - (paid.get(s.id) ?? 0)),
-    );
+    if (!s.cancelled)
+      balances.set(
+        s.memberId,
+        (balances.get(s.memberId) ?? 0) +
+          Math.max(0, s.amount - (paid.get(s.id) ?? 0)),
+      );
   }
   return {
     members,
@@ -51,7 +52,7 @@ export function buildWorkspaceIndex(data: Data) {
       (memberships.get(memberId) ?? []).reduce(
         (sum, s) =>
           sum +
-          (s.dueDate && s.dueDate < day
+          (s.dueDate && s.dueDate < day && !s.cancelled
             ? Math.max(0, s.amount - (paid.get(s.id) ?? 0))
             : 0),
         0,
@@ -60,6 +61,8 @@ export function buildWorkspaceIndex(data: Data) {
     paid,
     balance: (memberId: string) => balances.get(memberId) ?? 0,
     outstanding: (period: Membership) =>
-      Math.max(0, period.amount - (paid.get(period.id) ?? 0)),
+      period.cancelled
+        ? 0
+        : Math.max(0, period.amount - (paid.get(period.id) ?? 0)),
   };
 }

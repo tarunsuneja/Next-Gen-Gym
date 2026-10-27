@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import { buildWorkspaceIndex } from "./domain/workspaceIndex";
+import { useMemo, useState } from "react";
+import { Paginated } from "./shared/Paginated";
+import { pendingFeeRows } from "./features/dashboard/pendingFees";
 import { WhatsAppLink, dueMessage } from "./WhatsAppActions";
 import {
   UserPlus,
@@ -8,13 +9,12 @@ import {
   CreditCard,
   ArrowUpRight,
   Lightbulb,
+  Search,
 } from "lucide-react";
 import { MemberAvatar } from "./MemberAvatar";
 import {
   type Data,
   type Member,
-  balance,
-  outstanding,
   latest,
   today,
   shiftDay,
@@ -43,23 +43,20 @@ export function DashboardShortcuts({
   setup: () => void;
 }) {
   const day = today();
-  const workspaceIndex = useMemo(() => buildWorkspaceIndex(data), [data]);
+  const [pendingQuery, setPendingQuery] = useState("");
   const recent = [...data.members]
     .sort(
       (a, b) => b.joined.localeCompare(a.joined) || b.id.localeCompare(a.id),
     )
     .slice(0, 5);
-  const debts = data.members
-    .filter((m) => workspaceIndex.balance(m.id) > 0)
-    .map((member) => {
-      const periods = data.memberships.filter(
-        (s) => s.memberId === member.id && outstanding(data, s) > 0,
-      );
-      const due = periods.map((s) => s.dueDate || s.start).sort()[0];
-      return { member, due, amount: workspaceIndex.balance(member.id) };
-    })
-    .sort((a, b) => a.due.localeCompare(b.due) || b.amount - a.amount)
-    .slice(0, 5);
+  const allDebts = useMemo(
+    () => (section === "pending" ? pendingFeeRows(data) : []),
+    [data, section],
+  );
+  const term = pendingQuery.trim().toLowerCase();
+  const debts = allDebts.filter(({ member }) =>
+    `${member.name} ${member.phone} ${member.id}`.toLowerCase().includes(term),
+  );
   const actions = [
     {
       title: "Add new member",
@@ -154,7 +151,10 @@ export function DashboardShortcuts({
       {section === "pending" && (
         <section className="panel pending-fees-panel">
           <div className="panel-header">
-            <h2>Pending fees</h2>
+            <div>
+              <h2>Pending fees</h2>
+              <p>{allDebts.length} members with an outstanding balance</p>
+            </div>
             <button
               className="text-button"
               onClick={pending}
@@ -163,43 +163,72 @@ export function DashboardShortcuts({
               View all <ArrowUpRight size={14} />
             </button>
           </div>
-          {debts.map(({ member: m, due, amount }) => {
-            const status =
-              due < day
-                ? "Overdue"
-                : due === day
-                  ? "Due today"
-                  : due <= shiftDay(day, 7)
-                    ? "Due soon"
-                    : "Upcoming";
-            return (
-              <div key={m.id} className="pending-whatsapp-row">
-                <button
-                  type="button"
-                  className="list-item list-item-button"
-                  onClick={() => open(m)}
-                  aria-label={`Open ${m.name}`}
-                >
-                  <MemberAvatar name={m.name} photo={m.photo} />
-                  <div>
-                    <strong>{m.name}</strong>
-                    <small>
-                      {date(due)} · {status}
-                    </small>
-                  </div>
-                  <strong>{money(amount)}</strong>
-                </button>
-                <div className="pending-whatsapp-action">
-                  <WhatsAppLink phone={m.phone} message={dueMessage(data, m)}>
-                    WhatsApp due
-                  </WhatsAppLink>
-                </div>
+          <div className="toolbar">
+            <div className="search">
+              <Search size={18} aria-hidden="true" />
+              <input
+                aria-label="Search pending payments"
+                placeholder="Search member name or phone"
+                value={pendingQuery}
+                onChange={(event) => setPendingQuery(event.target.value)}
+              />
+            </div>
+          </div>
+          <Paginated
+            records={debts}
+            label="pending payments"
+            render={(visible) => (
+              <div
+                className="pending-fees-list"
+                role="region"
+                aria-label="Pending payment members"
+                tabIndex={0}
+              >
+                {visible.map(({ member: m, due, amount }) => {
+                  const status =
+                    due < day
+                      ? "Overdue"
+                      : due === day
+                        ? "Due today"
+                        : due <= shiftDay(day, 7)
+                          ? "Due soon"
+                          : "Upcoming";
+                  return (
+                    <div key={m.id} className="pending-whatsapp-row">
+                      <button
+                        type="button"
+                        className="list-item list-item-button"
+                        onClick={() => open(m)}
+                        aria-label={`Open ${m.name}`}
+                      >
+                        <MemberAvatar name={m.name} photo={m.photo} />
+                        <div>
+                          <strong>{m.name}</strong>
+                          <small>
+                            {date(due)} · {status}
+                          </small>
+                        </div>
+                        <strong>{money(amount)}</strong>
+                      </button>
+                      <div className="pending-whatsapp-action">
+                        <WhatsAppLink
+                          phone={m.phone}
+                          message={dueMessage(data, m)}
+                        >
+                          WhatsApp due
+                        </WhatsAppLink>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            )}
+          />
           {!debts.length && (
             <div className="empty">
-              <p>No pending fees.</p>
+              <p>
+                {term ? "No matching pending members." : "No pending fees."}
+              </p>
             </div>
           )}
         </section>

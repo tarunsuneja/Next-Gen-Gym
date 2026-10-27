@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { launch, open, signIn } from "./live-harness.mjs";
 import { seed } from "./fixtures.ts";
+import { pendingFeeRows } from "../src/features/dashboard/pendingFees.ts";
 const browser = await launch();
 try {
   const { page, errors } = await open(browser, { width: 1440, height: 900 });
@@ -58,16 +59,19 @@ try {
       status:
         path.endsWith("/get_gym_data") ||
         path.endsWith("/get_gym_dashboard") ||
-        path.endsWith("/my_role")
+        path.endsWith("/my_role") ||
+        path.endsWith("/is_developer")
           ? 200
           : 403,
       contentType: "application/json",
       body: JSON.stringify(
         path.endsWith("/get_gym_data") || path.endsWith("/get_gym_dashboard")
           ? fixture
-          : path.endsWith("/my_role")
-            ? "owner"
-            : { message: "Layout test does not allow writes." },
+          : path.endsWith("/is_developer")
+            ? false
+            : path.endsWith("/my_role")
+              ? "owner"
+              : { message: "Layout test does not allow writes." },
       ),
     });
   });
@@ -75,6 +79,47 @@ try {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
+  for (const width of [1440, 768, 390, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["dark", "light"]) {
+      if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+        await page
+          .getByRole("button", {
+            name: `Switch to ${theme} theme`,
+            exact: true,
+          })
+          .click();
+      const lockup = page.locator(
+        width <= 720 ? ".mobile-brand" : ".login-art > .brand",
+      );
+      assert(await lockup.getByText("Gagandeep", { exact: true }).isVisible());
+      assert(
+        await lockup.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+      );
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+      assert(await page.getByLabel("Email address").isVisible());
+      assert(await page.getByLabel("Password", { exact: true }).isVisible());
+      await page.screenshot({
+        path: `tests/artifacts/login-brand-${theme}-${width}.png`,
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page
+    .getByRole("button", { name: "Forgot password?", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Reset your password", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Back to sign in", exact: true })
+    .click();
   await page.getByLabel("Email address").fill("layout@example.invalid");
   await page.getByLabel("Password").fill("layout-only-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -82,19 +127,38 @@ try {
   for (const width of [1440, 1000, 390]) {
     await page.setViewportSize({ width, height: 540 });
     if (width <= 720)
-      await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Open navigation", exact: true })
+        .click();
     const sidebar = page.locator("aside.sidebar");
     assert(await sidebar.getByText("Gagandeep", { exact: true }).isVisible());
     assert(await sidebar.evaluate((el) => el.scrollWidth <= el.clientWidth));
     const nav = sidebar.getByRole("navigation");
-    await nav.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    assert(await nav.evaluate((el) => el.scrollTop > 0), "Short viewports scroll navigation");
-    const accountBox = await sidebar.getByRole("button", { name: "Sign out", exact: true }).boundingBox();
-    assert(accountBox.y >= 0 && accountBox.y + accountBox.height <= 541, "Account stays in the viewport");
-    await page.screenshot({ path: `tests/artifacts/sidebar-${width}.png`, animations: "disabled" });
-    await nav.evaluate((el) => { el.scrollTop = 0; });
+    await nav.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    assert(
+      await nav.evaluate((el) => el.scrollTop > 0),
+      "Short viewports scroll navigation",
+    );
+    const accountBox = await sidebar
+      .getByRole("button", { name: "Sign out", exact: true })
+      .boundingBox();
+    assert(
+      accountBox.y >= 0 && accountBox.y + accountBox.height <= 541,
+      "Account stays in the viewport",
+    );
+    await page.screenshot({
+      path: `tests/artifacts/sidebar-${width}.png`,
+      animations: "disabled",
+    });
+    await nav.evaluate((el) => {
+      el.scrollTop = 0;
+    });
     if (width <= 720)
-      await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Close navigation", exact: true })
+        .click();
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator(".movement-card.joined button").click();
@@ -250,7 +314,7 @@ try {
   );
   assert.equal(
     await page.locator(".pending-fees-panel .list-item-button").count(),
-    5,
+    Math.min(10, pendingFeeRows(fixture).length),
   );
   await page
     .getByRole("button", { name: "Add new member", exact: false })

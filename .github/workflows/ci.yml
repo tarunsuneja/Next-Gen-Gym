@@ -64,6 +64,7 @@ jobs:
           npm run dev &
           npx wait-on http://127.0.0.1:5173
           npm run test:checkout
+          npm run test:developer
           npm run test:history
           npm run test:dashboard-layout
           npm run test:workspace-layout

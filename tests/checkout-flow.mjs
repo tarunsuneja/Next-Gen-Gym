@@ -85,10 +85,11 @@ try {
         baseAmount: p.baseAmount,
         discountType: p.discountType,
         discountValue: p.discountValue,
-        dueDate: p.start,
+        dueDate: p.dueDate || p.start,
       };
       data.memberships.push(period);
-      if (p.amount > 0) payment(period, p.payment, p.payment.requestId);
+      if (p.amount > 0 && !p.deferPayment)
+        payment(period, p.payment, p.payment.requestId);
     }
     await page.route("**/rest/v1/rpc/**", async (r) => {
       const endpoint = new URL(r.request().url()).pathname.split("/").at(-1);
@@ -106,6 +107,7 @@ try {
         result =
           endpoint === "get_gym_dashboard" ? dashboardFixture(data) : data;
       } else if (endpoint === "my_role") result = "owner";
+      else if (endpoint === "is_developer") result = false;
       else if (endpoint === "gym_action") {
         const a = r.request().postDataJSON();
         writes.push(a);
@@ -132,7 +134,7 @@ try {
               const m = {
                 ...p,
                 id: crypto.randomUUID(),
-                joined: today(),
+                joined: p.joined || today(),
                 archived: false,
               };
               delete m.enrollment;
@@ -196,12 +198,26 @@ try {
     await page
       .getByRole("button", { name: "Collect payment", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Receive full payment", exact: true })
-      .click();
+    assert(
+      await page
+        .getByRole("button", { name: "Receive full payment", exact: true })
+        .isDisabled(),
+    );
     assert.equal(writes.length, 0);
     await page.getByLabel("Search member", { exact: true }).fill("Arjun");
     await page.locator(".checkout-results button").first().click();
+    assert(
+      await page
+        .getByRole("button", { name: "Receive full payment", exact: true })
+        .isDisabled(),
+    );
+    assert.equal(
+      await page.getByLabel("Payment method", { exact: true }).count(),
+      0,
+    );
+    await page
+      .getByRole("button", { name: "Buy / renew membership", exact: true })
+      .click();
     const member = data.members[0],
       previous = data.memberships.find((s) => s.memberId === member.id);
     assert.equal(
@@ -247,6 +263,9 @@ try {
           .click();
         await page.getByLabel("Search member", { exact: true }).fill("Arjun");
         await page.locator(".checkout-results button").first().click();
+        await page
+          .getByRole("button", { name: "Buy / renew membership", exact: true })
+          .click();
       }
       assert(
         await page
@@ -285,9 +304,12 @@ try {
       .click();
     await page.getByLabel("Search member", { exact: true }).fill("Rohan");
     await page.locator(".checkout-results button").first().click();
-    await page
-      .getByRole("button", { name: "Clear existing balance", exact: true })
-      .click();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Clear existing balance", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
     assert.equal(
       await page
         .getByLabel("Amount received (₹)", { exact: true })
@@ -311,7 +333,7 @@ try {
     assert(
       await page
         .getByRole("button", { name: "Collect payment", exact: true })
-        .isEnabled(),
+        .isDisabled(),
     );
     await page.getByRole("button", { name: "Renew", exact: true }).click();
     const newest = data.memberships
@@ -374,6 +396,117 @@ try {
       0,
     );
     await close();
+    // Paid future starts and unpaid current starts retain independent dates.
+    for (const deferred of [false, true]) {
+      await nav("Dashboard");
+      await page
+        .getByRole("button", { name: "Add member", exact: true })
+        .click();
+      const name = deferred ? "Deferred New Member" : "Future Start Member";
+      assert.equal(
+        await page.getByLabel("Joining date", { exact: true }).inputValue(),
+        today(),
+      );
+      await page
+        .getByLabel("Joining date", { exact: true })
+        .fill(shiftDay(today(), -2));
+      await page.getByLabel("Full name", { exact: true }).fill(name);
+      await page
+        .getByLabel("Phone number", { exact: true })
+        .fill(deferred ? "9876543223" : "9876543222");
+      await page
+        .getByLabel("Start date", { exact: true })
+        .fill(deferred ? today() : shiftDay(today(), 3));
+      if (deferred) {
+        await page
+          .getByLabel("Payment status", { exact: true })
+          .selectOption("later");
+        await page
+          .getByLabel("Payment due date", { exact: true })
+          .fill(shiftDay(today(), 3));
+        assert.equal(
+          await page.locator('input[name="receivedAmount"]').count(),
+          0,
+        );
+      }
+      await page
+        .getByRole("button", { name: "Complete registration", exact: true })
+        .click();
+      if (deferred) {
+        await page
+          .getByRole("heading", { name: "Member registered", exact: true })
+          .waitFor();
+        assert.equal(writes.at(-1).payload.enrollment.deferPayment, true);
+        assert.equal(writes.at(-1).payload.enrollment.payment, undefined);
+        assert.equal(
+          writes.at(-1).payload.enrollment.dueDate,
+          shiftDay(today(), 3),
+        );
+        assert(balance(data, data.members.find((m) => m.name === name).id) > 0);
+        await close();
+        const deferredMember = data.members.find((m) => m.name === name);
+        await nav("Dashboard");
+        await page
+          .getByLabel("Search pending payments", { exact: true })
+          .fill(name);
+        const pendingPanel = page.locator(".pending-fees-panel");
+        assert.equal(
+          await pendingPanel.locator(".pending-whatsapp-row").count(),
+          1,
+        );
+        await pendingPanel
+          .getByRole("button", { name: `Open ${name}`, exact: true })
+          .click();
+        const originalPeriod = {
+          ...data.memberships.find((s) => s.memberId === deferredMember.id),
+        };
+        assert.equal(
+          data.payments.filter((p) => p.memberId === deferredMember.id).length,
+          0,
+        );
+        await page
+          .getByRole("button", { name: "Collect payment", exact: true })
+          .click();
+        await page
+          .getByLabel("Outstanding membership", { exact: true })
+          .waitFor();
+        await page
+          .getByRole("button", { name: "Receive full payment", exact: true })
+          .click();
+        await receipt();
+        assert.equal(balance(data, deferredMember.id), 0);
+        assert.equal(
+          data.payments.filter((p) => p.memberId === deferredMember.id).length,
+          1,
+        );
+        assert.deepEqual(
+          data.memberships.find((s) => s.id === originalPeriod.id),
+          originalPeriod,
+        );
+        await nav("Dashboard");
+        await page
+          .getByLabel("Search pending payments", { exact: true })
+          .fill(name);
+        await page
+          .getByText("No matching pending members.", { exact: true })
+          .waitFor();
+      } else {
+        await receipt();
+        assert.equal(
+          writes.at(-1).payload.enrollment.start,
+          shiftDay(today(), 3),
+        );
+        assert.equal(writes.at(-1).payload.joined, shiftDay(today(), -2));
+        await page
+          .getByRole("button", { name: "Edit member", exact: true })
+          .click();
+        assert.equal(
+          await page.getByLabel("Joining date", { exact: true }).inputValue(),
+          shiftDay(today(), -2),
+        );
+        await close();
+      }
+    }
     // Profile-only registration does not create a membership or receipt.
     await nav("Dashboard");
     await page.getByRole("button", { name: "Add member", exact: true }).click();

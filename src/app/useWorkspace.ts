@@ -11,6 +11,7 @@ import {
 import { id, type Data, type StaffRole } from "../domain";
 import { friendlyError } from "../errors";
 import { CommittedRefreshError } from "../data/commandResult";
+import { invitationSession } from "../data/client";
 
 type Callbacks = {
   onSignedOut: () => void;
@@ -106,7 +107,10 @@ export function useWorkspace(online: boolean, callbacks: Callbacks) {
         setBusy(false);
     }
   }, []);
-  const load = useCallback(() => readWorkspace(!!data && !data.dashboard), [data, readWorkspace]);
+  const load = useCallback(
+    () => readWorkspace(!!data && !data.dashboard),
+    [data, readWorkspace],
+  );
   const hydrate = useCallback(() => readWorkspace(true), [readWorkspace]);
   useEffect(() => {
     if (!supabase) return;
@@ -129,6 +133,10 @@ export function useWorkspace(online: boolean, callbacks: Callbacks) {
       setSession(userId);
     };
     let receivedEvent = false;
+    if (invitationSession)
+      void invitationSession.then((error) => {
+        if (!disposed && error) setError(friendlyError(error));
+      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
@@ -147,7 +155,10 @@ export function useWorkspace(online: boolean, callbacks: Callbacks) {
     if (session) void load();
   }, [session]);
   const mutate = useCallback(
-    async (action: Action, message = "Saved successfully"): Promise<Data | false> => {
+    async (
+      action: Action,
+      message = "Saved successfully",
+    ): Promise<Data | false> => {
       if (locked.current) return false;
       locked.current = true;
       loadController.current?.abort();
@@ -186,47 +197,50 @@ export function useWorkspace(online: boolean, callbacks: Callbacks) {
     },
     [online, data],
   );
-  const sendMessage = useCallback(async (memberId: string, templateName: string) => {
-    if (locked.current) return false;
-    locked.current = true;
-    loadController.current?.abort();
-    const auth = epoch.current;
-    ++generation.current;
-    setBusy(true);
-    setError("");
-    try {
-      if (!online)
-        throw Error("You are offline. Reconnect before sending messages.");
-      const key = memberId + ":" + templateName;
-      const requestId = sendRequests.current.get(key) ?? id();
-      sendRequests.current.set(key, requestId);
-      await sendWhatsApp({ memberId, templateName, requestId });
-      sendRequests.current.delete(key);
-      if (!alive.current || auth !== epoch.current) return false;
-      effects.current.flash("Message sent");
+  const sendMessage = useCallback(
+    async (memberId: string, templateName: string) => {
+      if (locked.current) return false;
+      locked.current = true;
+      loadController.current?.abort();
+      const auth = epoch.current;
+      ++generation.current;
+      setBusy(true);
+      setError("");
       try {
-        const updated = data
-          ? await liveRefresh(data, ["whatsapp"])
-          : await liveLoad();
-        if (alive.current && auth === epoch.current) {
-          setData(updated);
-          setRefreshed(new Date().toISOString());
+        if (!online)
+          throw Error("You are offline. Reconnect before sending messages.");
+        const key = memberId + ":" + templateName;
+        const requestId = sendRequests.current.get(key) ?? id();
+        sendRequests.current.set(key, requestId);
+        await sendWhatsApp({ memberId, templateName, requestId });
+        sendRequests.current.delete(key);
+        if (!alive.current || auth !== epoch.current) return false;
+        effects.current.flash("Message sent");
+        try {
+          const updated = data
+            ? await liveRefresh(data, ["whatsapp"])
+            : await liveLoad();
+          if (alive.current && auth === epoch.current) {
+            setData(updated);
+            setRefreshed(new Date().toISOString());
+          }
+        } catch {
+          if (auth === epoch.current)
+            setError(
+              "Message accepted, but the delivery log could not be refreshed. Refresh to see its status.",
+            );
         }
-      } catch {
-        if (auth === epoch.current)
-          setError(
-            "Message accepted, but the delivery log could not be refreshed. Refresh to see its status.",
-          );
+        return true;
+      } catch (e) {
+        if (alive.current && auth === epoch.current) setError(friendlyError(e));
+        return false;
+      } finally {
+        locked.current = false;
+        if (alive.current && auth === epoch.current) setBusy(false);
       }
-      return true;
-    } catch (e) {
-      if (alive.current && auth === epoch.current) setError(friendlyError(e));
-      return false;
-    } finally {
-      locked.current = false;
-      if (alive.current && auth === epoch.current) setBusy(false);
-    }
-  }, [online, data]);
+    },
+    [online, data],
+  );
   return useMemo(
     () => ({
       data,
@@ -242,6 +256,17 @@ export function useWorkspace(online: boolean, callbacks: Callbacks) {
       mutate,
       sendMessage,
     }),
-    [data, session, role, busy, error, refreshed, load, hydrate, mutate, sendMessage],
+    [
+      data,
+      session,
+      role,
+      busy,
+      error,
+      refreshed,
+      load,
+      hydrate,
+      mutate,
+      sendMessage,
+    ],
   );
 }

@@ -1,4 +1,6 @@
 import { Download } from "lucide-react";
+import { GymLogo } from "../../Brand";
+import { GYM_OWNER } from "../../branding";
 import { MemberAvatar as Avatar } from "../../MemberAvatar";
 import {
   WhatsAppLink,
@@ -21,16 +23,14 @@ export function PaymentReceipt({
 }) {
   const memberName = (id: string) =>
     data.members.find((m) => m.id === id)?.name || "Unknown member";
+  const period = data.memberships.find((m) => m.id === payment.membershipId);
   return (
     <>
       <div className="print-receipt">
         <div className="receipt-brand">
-          <img
-            className="receipt-logo"
-            src="/ngf-logo.jpg"
-            alt="Next Generation Fitness logo"
-          />
+          <GymLogo className="receipt-logo" />
           <h2>{payment.gymName || data.gym.name}</h2>
+          <p className="receipt-unit">Unit by {GYM_OWNER}</p>
           <p>{payment.gymAddress ?? data.gym.address}</p>
           <p>{payment.gymPhone ?? data.gym.phone}</p>
         </div>
@@ -59,6 +59,14 @@ export function PaymentReceipt({
                 ?.planName
             }
           </dd>
+          {period && (
+            <>
+              <dt>Membership period</dt>
+              <dd>
+                {date(period.start)} – {date(period.end)}
+              </dd>
+            </>
+          )}
           <dt>Payment method</dt>
           <dd>{payment.method}</dd>
           <dt>Reference</dt>

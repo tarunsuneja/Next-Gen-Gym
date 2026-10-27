@@ -1,3 +1,4 @@
+import { Brand } from "./Brand";
 import { AuthScreen } from "./features/auth/AuthScreen";
 import { VisitCheckout } from "./features/attendance/VisitCheckout";
 import { csvBlob } from "./shared/csv";
@@ -127,6 +128,7 @@ const AttendanceRecordsView = lazy(() =>
   })),
 );
 const loading = <p role="status">Loading…</p>;
+const DeveloperTools = lazy(() => import("./features/developer/DeveloperTools"));
 const AttendanceRecords = (
   props: ComponentProps<typeof AttendanceRecordsView>,
 ) => (
@@ -162,7 +164,8 @@ type Page =
   | "Reminders"
   | "Settings"
   | "Reports"
-  | "Audit";
+  | "Audit"
+  | "Developer Tools";
 const nav: [Page, typeof Users][] = [
   ["Dashboard", LayoutDashboard],
   ["Members", Users],
@@ -172,6 +175,7 @@ const nav: [Page, typeof Users][] = [
   ["Settings", Settings],
   ["Reports", Receipt],
   ["Audit", ShieldCheck],
+  ["Developer Tools", ShieldCheck],
 ];
 type ModalFields = {
   newRegistration?: boolean;
@@ -228,26 +232,8 @@ function Badge({
 }) {
   return <span className={"badge " + tone}>{children}</span>;
 }
-function Brand({ showUnit = false }: { showUnit?: boolean }) {
-  return (
-    <>
-      <img
-        className="gym-logo"
-        src="/ngf-logo.jpg"
-        alt="Next Generation Fitness logo"
-      />
-      <span className="brand-name">
-        Next Generation<span>Fitness Gym</span>
-      </span>
-      {showUnit && (
-        <div className="brand-unit">
-          <small>Unit by <strong>Gagandeep</strong></small>
-        </div>
-      )}
-    </>
-  );
-}
 export default function App() {
+  const [checkoutReady, setCheckoutReady] = useState(false);
   const [viewRange, setViewRange] = useState<{
     from: string;
     to: string;
@@ -352,6 +338,18 @@ export default function App() {
       setViewRange(null);
     },
   });
+  const [developerAccess, setDeveloperAccess] = useState<{ user: string; allowed: boolean }>();
+  const developerAllowed = !!session && developerAccess?.user === session && developerAccess.allowed;
+  useEffect(() => {
+    setDeveloperAccess(undefined);
+    if (!session || !supabase) return;
+    const controller = new AbortController();
+    void supabase.rpc("is_developer").abortSignal(AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]))
+      .then(({ data, error }) => {
+        if (!controller.signal.aborted) setDeveloperAccess({ user: session, allowed: !error && data === true });
+      });
+    return () => controller.abort();
+  }, [session]);
   const needsHistory = requiresFullHistory(data, {
     page,
     modal: !!modal,
@@ -930,6 +928,7 @@ export default function App() {
               <tr>
                 <th>Receipt</th>
                 <th>Member</th>
+                <th>Membership period</th>
                 <th>Date</th>
                 <th>Method</th>
                 <th>Amount</th>
@@ -951,6 +950,14 @@ export default function App() {
                       />
                       <span>{memberName(p.memberId)}</span>
                     </span>
+                  </td>
+                  <td data-label="Membership period">
+                    {workspaceIndex!.membershipById.has(p.membershipId) ? (
+                      <span className="member-identity-copy">
+                        <span>{workspaceIndex!.membershipById.get(p.membershipId)!.planName}</span>
+                        <small>{date(workspaceIndex!.membershipById.get(p.membershipId)!.start)} – {date(workspaceIndex!.membershipById.get(p.membershipId)!.end)}</small>
+                      </span>
+                    ) : "—"}
                   </td>
                   <td data-label="Date">{date(p.at)}</td>
                   <td data-label="Method">
@@ -1008,6 +1015,8 @@ export default function App() {
     try {
       if (kind === "member") {
         if (!s("name").trim()) throw Error("Enter the member’s full name.");
+        if (!s("joined") || memberErrors(d, { joined: s("joined") }).joined)
+          throw Error("Choose a valid joining date that is not in the future.");
         const phone = normalizePhone(s("phone"));
         if (phone.length < 10 || phone.length > 15)
           throw Error(
@@ -1044,6 +1053,8 @@ export default function App() {
           );
           if (!s("start") || !s("dueDate"))
             throw Error("Choose the membership start and due dates.");
+          if (s("paymentTiming") === "later" && s("dueDate") < t)
+            throw Error("Payment due date cannot be before today.");
         }
         const saved = await mutate(
           {
@@ -1062,8 +1073,10 @@ export default function App() {
                       baseAmount: Math.round(n("baseAmount") * 100),
                       discountType: s("discountType"),
                       discountValue: n("discountValue"),
-                      dueDate: s("start"),
-                      payment: receivedPayment(Math.round(n("amount") * 100)),
+                      dueDate: s("dueDate"),
+                      ...(s("paymentTiming") === "later" && n("amount") > 0
+                        ? { deferPayment: true }
+                        : { payment: receivedPayment(Math.round(n("amount") * 100)) }),
                     },
                   }
                 : {}),
@@ -1079,7 +1092,7 @@ export default function App() {
               dob: s("dob"),
               photo: s("photo"),
               notes: s("notes"),
-              joined: modal?.member?.joined || t,
+              joined: s("joined"),
               archived: modal?.member?.archived ?? false,
               whatsappConsent: modal?.member?.whatsappConsent ?? false,
             },
@@ -1136,6 +1149,11 @@ export default function App() {
             requestId: s("paymentRequestId"),
           };
         } else {
+          if (
+            d.memberships.some((period) => period.memberId === selectedMember.id && !period.cancelled) &&
+            s("purchaseIntent") !== "renewal"
+          )
+            throw Error("Select an unpaid membership to collect its fee, or explicitly choose Buy / renew membership for a new period.");
           const plan = d.plans.find((p) => p.id === s("plan"));
           if (!plan || selectedMember.archived)
             throw Error("Select an available member and membership plan.");
@@ -1347,14 +1365,14 @@ export default function App() {
               navigate("Dashboard");
             }}
           >
-            <Brand showUnit />
+            <Brand />
           </a>
           <div className="sidebar-brand-divider" />
         </div>
         <span className="nav-label">WORKSPACE</span>
         <nav aria-label="Main navigation">
           {nav
-            .filter(([p]) => p !== "Audit" || role === "owner")
+            .filter(([p]) => (p !== "Audit" || role === "owner") && (p !== "Developer Tools" || developerAllowed))
             .map(([p, Icon]) => (
               <button
                 key={p}
@@ -1388,7 +1406,7 @@ export default function App() {
           >
             <Avatar name={role === "owner" ? "Gym Admin" : "Gym Staff"} />
             <span>
-              <strong>{role === "owner" ? "Gym admin" : "Staff member"}</strong>
+              <strong>{developerAllowed ? "System developer" : role === "owner" ? "Gym admin" : "Staff member"}</strong>
               <small>Sign out</small>
             </span>
             <LogOut size={17} />
@@ -1452,7 +1470,7 @@ export default function App() {
               {date(t)}
             </span>
             <span className="owner-pill">
-              {role === "owner" ? "Admin" : "Staff"}
+              {developerAllowed ? "Developer" : role === "owner" ? "Admin" : "Staff"}
             </span>
           </div>
         </header>
@@ -1580,7 +1598,7 @@ export default function App() {
                   <button
                     className="secondary"
                     disabled={
-                      selected.archived && !workspaceIndex!.balance(selected.id)
+                      workspaceIndex!.balance(selected.id) <= 0
                     }
                     onClick={() =>
                       setModal({ kind: "payment", member: selected })
@@ -1988,6 +2006,17 @@ export default function App() {
               </div>
               <div className="stats-grid dashboard-metrics">
                 <Stat
+                  title="Active members"
+                  onClick={() => {
+                    navigate("Members");
+                    setFilter("Active");
+                  }}
+                  value={String(activeCount)}
+                  icon={<Users />}
+                  note={`Current · ${currentMembers.length} members in your gym`}
+                  accent="teal"
+                />
+                <Stat
                   title="Collections"
                   onClick={() => {
                     navigate("Fees & receipts");
@@ -2042,17 +2071,6 @@ export default function App() {
                     setAttendanceTab("History");
                     setViewRange({ from: t, to: t });
                   }}
-                />
-                <Stat
-                  title="Active members"
-                  onClick={() => {
-                    navigate("Members");
-                    setFilter("Active");
-                  }}
-                  value={String(activeCount)}
-                  icon={<Users />}
-                  note={`Current · ${currentMembers.length} members in your gym`}
-                  accent="teal"
                 />
                 <MemberHighlights
                   variant="movement"
@@ -2713,6 +2731,8 @@ export default function App() {
                 />
               )}
             </>
+          ) : page === "Developer Tools" ? (
+            developerAllowed ? <Suspense fallback={loading}><DeveloperTools onSaved={load} onPassword={() => setModal({ kind: "password" })} /></Suspense> : <p role="alert">Developer access required.</p>
           ) : page === "Reports" ? (
             <Reports data={d} download={exportWithAudit} />
           ) : page === "Audit" ? (
@@ -3218,10 +3238,10 @@ export default function App() {
                   />
                 )}
                 {modal.kind === "membership" && (
-                  <CheckoutForm data={d} member={modal.member} renew />
+                  <CheckoutForm data={d} member={modal.member} renew onReadyChange={setCheckoutReady} />
                 )}
                 {modal.kind === "payment" && (
-                  <CheckoutForm data={d} member={modal.member} />
+                  <CheckoutForm data={d} member={modal.member} onReadyChange={setCheckoutReady} />
                 )}
                 {(modal.kind === "override" || modal.kind === "void") && (
                   <>
@@ -3339,6 +3359,7 @@ export default function App() {
                     className="primary"
                     disabled={
                       busy ||
+                      (["payment", "membership"].includes(modal.kind) && !checkoutReady) ||
                       (modal.kind === "expire" &&
                         !!modal.membership?.freezeEnd &&
                         modal.membership.freezeEnd >= t) ||

@@ -126,6 +126,7 @@ try {
       } else if (endpoint === "get_gym_dashboard")
         value = dashboardFixture(data);
       else if (endpoint === "my_role") value = "owner";
+      else if (endpoint === "is_developer") value = false;
       else if (endpoint === "get_payment_export_page") {
         assert.equal(args.p_limit, 250);
         if (args.p_revision && exportRevisionChange) {
